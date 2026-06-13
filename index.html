@@ -624,7 +624,8 @@ function cellSVG(cell, prev, next, colIdx) {
 
     } else if (cell.t === 'z') {
         let d = `M0 ${mid} L${W} ${mid}`;
-        if (prev && prev.t === 'bit') d = `M0 ${prev.v ? hi : lo} L0 ${mid} ` + d;
+        if (prev && prev.t === 'bit') d = `M0 ${prev.v ? hi : lo} L0 ${mid} ` + d;       // 시작: 이전 bit 레벨 → 중앙
+        if (next && next.t === 'bit') d += ` M${W} ${mid} L${W} ${next.v ? hi : lo}`;     // 끝: 중앙 → 다음 bit 레벨
         body = `<path d="${d}" fill="none" stroke="#e53935" stroke-width="${lw}" ${pe}/>`;
 
     } else if (cell.t === 'x') {
