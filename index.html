@@ -495,18 +495,31 @@ function seed() {
    Undo (Ctrl+Z)
    ========================================================================= */
 const undoStack = [];
-const MAX_UNDO = 100;
-function snapshot() { return JSON.stringify({ s: state, n: nextAnnoId }); }
+const redoStack = [];
+const MAX_UNDO = 200;
+function snapshot() { return JSON.stringify({ s: state, n: nextAnnoId, b: nextBusId }); }
+function restoreSnap(snap) {
+    const o = JSON.parse(snap);
+    state = o.s;
+    nextAnnoId = o.n;
+    if (o.b != null) nextBusId = o.b;
+    render();
+}
+// 모든 상태 변경(파형/주석/그리드 설정/크기 등) 직전에 호출
 function pushUndo() {
     undoStack.push(snapshot());
     if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack.length = 0; // 새 동작이 들어오면 redo 분기 초기화
 }
 function undo() {
     if (!undoStack.length) return;
-    const prev = JSON.parse(undoStack.pop());
-    state = prev.s;
-    nextAnnoId = prev.n;
-    render();
+    redoStack.push(snapshot()); // 현재 상태를 redo 스택으로
+    restoreSnap(undoStack.pop());
+}
+function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(snapshot()); // 현재 상태를 undo 스택으로
+    restoreSnap(redoStack.pop());
 }
 
 /* =========================================================================
@@ -548,6 +561,10 @@ function render() {
     $('#row-count').value = state.signals.length;
     $('#col-count').value = state.cols;
     $('#line-width').value = state.lineWidth;
+    $('#fill-color').value = state.fillColor;
+    $('#data-text-color').value = state.textColor;
+    $('#line-color').value = state.lineColor;
+    $('#anno-text-color').value = state.annoTextColor;
 }
 
 function renderTable() {
@@ -1617,9 +1634,12 @@ function wire() {
 
         // Ctrl/Cmd 조합
         if (e.ctrlKey || e.metaKey) {
-            if (k === 'z') {
+            if (k === 'z' && !e.shiftKey) {
                 if (editable) return;          // 입력칸은 브라우저 기본 undo 사용
                 e.preventDefault(); undo();
+            } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+                if (editable) return;          // 입력칸은 브라우저 기본 redo 사용
+                e.preventDefault(); redo();    // 다시 실행 (Ctrl+Y / Ctrl+Shift+Z)
             } else if (k === 's') {
                 e.preventDefault(); $('#save-file').click();  // JSON 저장
             }
