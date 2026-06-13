@@ -1,0 +1,11 @@
+# Claude Code local data
+.claude/
+
+# 내보내기/캡처 산출물
+*.jpg
+*.jpeg
+waveform.json
+
+# 임시 테스트 파일
+_*.html
+_*.png

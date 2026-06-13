@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waveform Grid Editor</title>
+<style>
+    :root {
+        --cell-w: 40px;
+        --cell-h: 44px;
+        --name-w: 84px;
+        --grid-line: #d4d4d4;
+        --grid-line-strong: #9aa0a6;
+        --bg: #fafafa;
+        --wave: #1565c0;
+        --wave-data: #2e7d32;
+    }
+    *{box-sizing: border-box;}
+    body {
+        margin: 0;
+        font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+        background: var(--bg);
+        color: #222;
+        font-size: 13px;
+    }
+    header {
+        padding: 10px 16px;
+        background: #fff;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    header h1 {
+        font-size: 16px; margin: 0 8px 0 0; font-weight: 600; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .logo-icon {width: 20px; height: 20px; color: var(--wave); flex: 0 0 auto;}
+    .dir-icon {
+        width: 22px; height: 16px; display: block;
+        fill: none; stroke: currentColor; stroke-width: 2;
+        stroke-linecap: round; stroke-linejoin: round;
+    }
+    .tool-btn:has(.dir-icon) {display: inline-flex; align-items: center; justify-content: center; padding: 0 7px;}
+    .btn-icon {width: 14px; height: 14px; flex: 0 0 auto; fill: currentColor;}
+    .tool-btn:has(.btn-icon) {display: inline-flex; align-items: center; justify-content: center; gap: 5px;}
+    .toolbar {display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0;}
+    .toolbar-row {display: flex; gap: 6px; flex-wrap: wrap; align-items: center;}
+    .toolbar .group {
+        display: flex; gap: 4px; align-items: center; padding-right: 10px;
+        margin-right: 4px; border-right: 1px solid #e0e0e0;
+    }
+    .toolbar .group:last-child {border-right: none;}
+    .tool-btn {
+        min-width: 34px; height: 30px; padding: 0 8px;
+        border: 1px solid #c4c4c4; background: #fff; border-radius: 5px;
+        cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .tool-btn:hover {background: #f0f0f0;}
+    .tool-btn:active {background: var(--wave); color: #fff; border-color: var(--wave);}
+    .tool-btn.sm {min-width: 0; font-weight: 500; font-size: 12px;}
+    .label {font-size: 12px; color: #666;}
+    .size-input {
+        width: 52px; height: 30px; padding: 0 6px;
+        border: 1px solid #c4c4c4; border-radius: 5px; font-size: 13px; text-align: center;
+    }
+    #fill-color, #data-text-color, #line-color, #anno-text-color {
+        width: 34px; height: 30px; padding: 2px; border: 1px solid #c4c4c4;
+        border-radius: 5px; background: #fff; cursor: pointer;
+    }
+
+    #app{padding: 16px; overflow: auto;}
+    .grid-wrap {
+        display: inline-block;
+        position: relative;
+        background: #fff;
+        border: 1px solid var(--grid-line-strong);
+        box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .resize-handle {position: absolute; z-index: 5;}
+    .resize-handle.col {
+        top: 0; right: -4px; width: 9px; height: 100%; cursor: ew-resize;
+    }
+    .resize-handle.row {
+        left: 0; bottom: -4px; height: 9px; width: 100%; cursor: ns-resize;
+    }
+    .resize-handle.corner {
+        right: -4px; bottom: -4px; width: 14px; height: 14px;
+        cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, var(--grid-line-strong) 50%);
+    }
+    .resize-handle.col:hover, .resize-handle.row:hover {background: rgba(21,101,192,.18);}
+    /*드래그 중 전체에 리사이즈 커서 + 텍스트 선택 방지*/
+    body.resizing-col, body.resizing-col * {cursor: ew-resize !important;}
+    body.resizing-row, body.resizing-row * {cursor: ns-resize !important;}
+    body.resizing-corner, body.resizing-corner * {cursor: nwse-resize !important;}
+    body.resizing {user-select: none;}
+    table.grid {border-collapse: collapse;}
+    table.grid th, table.grid td {padding: 0; margin: 0;}
+    .corner, .col-head {
+        height: 22px; background: #f3f3f3; border: 1px solid var(--grid-line);
+        text-align: center; font-size: 11px; color: #777; font-weight: 500;
+    }
+    .corner {width: var(--name-w);}
+    .col-head {width: var(--cell-w); min-width: var(--cell-w);}
+
+    .row-name {
+        width: var(--name-w); height: var(--cell-h);
+        border: 1px solid var(--grid-line); background: #f7f7f7; padding: 0;
+    }
+    .rn-inner {display: flex; align-items: center; height: 100%;} /*세로 중앙*/
+    .row-grip {
+        flex: 0 0 14px; align-self: stretch; display: flex; align-items: center;
+        justify-content: center; cursor: grab; color: #bbb; font-size: 12px;
+        user-select: none; border-right: 1px solid #eee;
+    }
+    .row-grip:hover {color: #666; background-color: #eee;}
+    body.row-dragging, body.row-dragging * {cursor: grabbing !important; user-select: none;}
+    tr.row-drag-src {opacity: 0.4;}
+    /*드롭 위치 표시선*/
+    tr.drop-before td {box-shadow: inset 0 3px 0 -1px var(--wave);}
+    tr.drop-after td {box-shadow: inset 0 -3px 0 -1px var(--wave);}
+    body.capture .row-grip {display: none;}
+
+    /*우클릭 컨텍스트 메뉴*/
+    #ctx-menu {
+        position: fixed; z-index: 200; min-width: 150px; padding: 4px;
+        background: #fff; border: 1px solid #c4c4c4; border-radius: 6px;
+        box-shadow: 0 4px 14px rgba(0,0,0,.18);
+        font-size: 13px; display:none;
+    }
+    #ctx-menu button {
+        display: block; width: 100%; text-align: left; border: none; background: none;
+        padding: 7px 10px; border-radius: 4px;  cursor: pointer; color: #222;
+    }
+    #ctx-menu button:hover {background: #eef3fb;}
+    #ctx-menu button.danger {color: #c62828;}
+    #ctx-menu hr {border: none; border-top: 1px solid #eee; margin: 4px 0;}
+    .row-name textarea {
+        width: 100%; border: none; background: transparent;
+        padding: 2px 8px; font: inherit; font-weight: 600; color: #333; outline: none;
+        resize: none; overflow: hidden; line-height: 1.3;
+        white-space: pre; text-align: left; display: block;
+    }
+    .row-name textarea:focus {background: #fffbe6;}
+    td.cell {
+        width: var(--cell-w); min-width: var(--cell-w); height: var(--cell-h);
+        border: 1px solid var(--grid-line);
+        position: relative; cursor: crosshair;
+        background-image: linear-gradient(to bottom, transparent 49%, #ddd 49%, #ddd 51%, transparent 51%);
+    }
+    td.cell svg {position: absolute; inset: 0; width: 100%; height: 100%; display: block;}
+    td.cell {overflow: visible;}
+    td.cell .data-label {
+        position: absolute; top: 0; left: 0; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: var(--data-font, 11px); color: #000; font-weight: 600;
+        pointer-events: none; z-index: 2; white-space: nowrap;
+    }
+
+    #wavedrom-panel {
+        margin-top: 18px; max-width: 900px;
+    }
+    #wavedrom-panel h2 {font-size: 13px; color: #555; margin: 0;}
+    .wd-head {display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;}
+    #wd-out {
+        width: 100%; min-height: 130px; font-family: Consolas, monospace;
+        font-size: 12px; border: 1px solid #ccc; border-radius: 6px; padding: 10px;
+        background: #1e1e1e; color: #d4d4d4; resize: vertical;
+    }
+    .hint {color: #888; font-size: 12px; margin: 6px 0 0;}
+
+    #import-panel {margin-top: 18px; max-width: 900px;}
+    #import-panel h2 {font-size: 13px; color: #555; margin: 0;}
+    .imp-head {display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px;}
+    #import-in {
+        width: 100%; min-height: 110px; font-family: Consolas, monospace;
+        font-size: 12px; border: 1px solid #ccc; border-radius: 6px; padding: 10px;
+        background: #fff; color: #222; resize: vertical;
+    }
+    #import-msg.ok {color: #2e7d32;}
+    #import-msg.err {color: #c62828;}
+
+    /*주석(화살표 등) 오버레이 레이어*/
+    #anno-layer, #anno-html {
+        position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 6; overflow: visible;
+    }
+    /*주석 도구가 켜지면 SVG 레이어가 마우스를 받음*/
+    body.anno-mode #anno-layer {pointer-events: auto; cursor: crosshair;}
+    body.anno-mode td.cell {cursor: crosshair;}
+    /*지움 도구: 레이어는 통과시키되 화살표(히트영역)만 클릭받아 삭제*/
+    body.erase-mode #anno-layer {pointer-events: none;}
+    body.erase-mode .anno-hit {pointer-events: stroke; cursor: pointer;}
+    body.erase-mode .anno-hit:hover {stroke: rgba(192,57,43,.25);}
+    /*적용 도구: 주석을 클릭하면 현재 선/글자색을 적용*/
+    body.annoapply-mode #anno-layer {pointer-events: none;}
+    body.annoapply-mode .anno-hit {pointer-events: stroke; cursor: pointer;}
+    body.annoapply-mode .anno-hit:hover {stroke: rgba(21,101,192,.25);}
+    body.annoapply-mode .anno-text {pointer-events: auto; cursor: pointer;}
+    /*이동 도구: 레이어는 통과, 몸통(히트영역)과 끝점 핸들만 마우스를 받음*/
+    body.move-mode #anno-layer {pointer-events: none;}
+    body.move-mode .anno-hit {pointer-events: stroke; cursor: move;}
+    body.move-mode .anno-handle {pointer-events: all; cursor: grab;}
+    .anno-handle {fill: #fff; stroke: #c0392b; stroke-width: 1.5; display: none;}
+    body.move-mode .anno-handle {display: block;}
+    body.move-mode .anno-text {cursor: move;}
+    body.anno-moving, body.anno-moving * {cursor: grabbing !important; user-select: none;}
+    .anno-arrow {stroke: var(--arrow-color, #c0392b); stroke-width: 2; fill: none;}
+    .anno-arrow-head {fill: var(--arrow-color, #c0392b);}
+    .anno-text {
+        position: absolute; pointer-events: auto;
+        font-size: var(--anno-font, 12px); color: var(--text-color, #c0392b); font-weight: 600;
+        line-height: 1.2; font-family: inherit;
+        background: none; border: 1px solid transparent; border-radius: 3px;
+        padding: 1px 3px; outline: none; resize: none; overflow: hidden;
+        text-align: center; transform: translate(-50%, -50%);
+        /*글자 테두리에 흰색 - 파형/화살표 위에서도 잘 보이게*/
+        paint-order: stroke fill;
+        -webkit-text-stroke: 3px #fff;
+        text-shadow: 0 0 2px #fff, 0 0 2px #fff; white-space:pre; /*줄바꿈 유지*/
+    }
+    /*화살표/점선 가운데 텍스트: 평소엔 클릭 편집 가능, 그리는 중(anno-mode)엔 선 그리기 방해 안 하도록 통과*/
+    .anno-text.line-text {pointer-events: auto;}
+    body.anno-mode .anno-text.line-text {pointer-events: none;}
+    /*텍스트 주석: 왼쪽 정렬, 가로는 클릭점이 왼쪽 끝, 세로는 중앙*/
+    .anno-text.left {text-align: left; transform: translateY(-50%);}
+    .anno-text:focus, .anno-text:hover {border-color: rgba(192, 57, 43, .5);}
+
+    #credit{
+        position: fixed; right: 10px; bottom: 8px;
+        font-size: 11px; color: #b0b0b0; pointer-events: none;
+        user-select: none; z-index: 100; text-align: right; line-height: 1.4;
+    }
+
+    /*=====캡처 모드: 표에서 격자/번호만 제거 (버튼은 유지)=====*/
+    body.capture {background: #fff;}
+    body.capture .grid-wrap {
+        border: none; box-shadow: none; background: #fff;
+    }
+    body.capture .resize-handle {display: none;}
+    body.capture .corner,
+    body.capture .col-head {display: none;} /*좌상단, 열 번호 숨김*/
+    body.capture .row-name {border: none; background: #fff;}
+    body.capture .row-name textarea {background: #fff; font-weight: 600;}
+    body.capture td.cell {
+        border: none;
+        background-image: none; /*중앙 안내선 제거*/
+    }
+
+    /*===== 추가 스타일 (body/script 와 함께 도입한 요소들) =====*/
+    .tool-btn.active {background: var(--wave); color: #fff; border-color: var(--wave);}
+    body.painting {user-select: none;}
+    .lbl-edit {
+        position: absolute; z-index: 30; height: var(--cell-h);
+        border: none; background: transparent; padding: 0;
+        font: inherit; font-weight: 600; font-size: var(--data-font, 11px);
+        color: #000; text-align: center; outline: none; caret-color: #000;
+    }
+</style>
+</head>
+<body>
+<header>
+    <div class="toolbar">
+        <!-- 1줄: 제목 + 셀에 그릴 값(펜) 선택 -->
+        <div class="toolbar-row">
+            <h1>
+                <svg class="logo-icon" viewBox="0 -64 640 640" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M476 480H324a36 36 0 0 1-36-36V96h-96v156a36 36 0 0 1-36 36H16a16 16 0 0 1-16-16v-32a16 16 0 0 1 16-16h112V68a36 36 0 0 1 36-36h152a36 36 0 0 1 36 36v348h96V260a36 36 0 0 1 36-36h140a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H512v156a36 36 0 0 1-36 36z"/>
+                </svg>
+                Waveform Grid Editor
+            </h1>
+            <div class="group">
+                <span class="label" style="font-weight:700">값</span>
+                <button class="tool-btn" data-pen="bit"   title="1/0 파형 (1bit) — 셀 위쪽 클릭=High, 아래쪽=Low">1/0</button>
+                <button class="tool-btn" data-pen="data"  title="데이터 버스 — 더블클릭으로 라벨 편집">D</button>
+                <button class="tool-btn" data-pen="z"     title="High-Z (빨간 실선)">z</button>
+                <button class="tool-btn" data-pen="x"     title="Unknown (주황 점선)">x</button>
+                <button class="tool-btn sm" data-pen="clear" title="셀 지우개">지움</button>
+                <button class="tool-btn sm" id="clear-all" title="모든 셀과 주석을 비웁니다">전체 지움</button>
+            </div>
+            <div class="group">
+                <button class="tool-btn sm" id="capture-btn" title="캡처용 깔끔 모드">캡처 모드</button>
+                <button class="tool-btn sm" id="capture-save" title="캡처 모드 모양의 파형을 JPG 이미지로 저장">캡처</button>
+            </div>
+            <div class="group">
+                <button class="tool-btn sm" id="export-json">JSON 생성</button>
+                <button class="tool-btn sm" id="save-file">JSON 저장</button>
+                <button class="tool-btn sm" id="open-file">JSON 열기</button>
+            </div>
+        </div>
+
+        <!-- 2줄: 버스색 / 셀 크기 / 그리드 조작 / 동작 -->
+        <div class="toolbar-row">
+            <div class="group">
+                <span class="label" style="font-weight:700">데이터</span>
+                <span class="label">배경</span>
+                <input type="color" id="fill-color" value="#add8e6" title="데이터 버스 배경색 (새 버스 기본값 / 채우기 색)">
+                <span class="label">글자</span>
+                <input type="color" id="data-text-color" value="#000000" title="데이터 글자 색 (새 버스 기본값 / 채우기 적용)">
+                <button class="tool-btn sm" data-tool="fill" title="적용: 선택 후 버스를 클릭하면 그 버스에 배경·글자색을 칠합니다"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M38.1,16.1a4.8,4.8,0,0,0-2.7.2A4.9,4.9,0,0,0,31.2,14l-1.3.2A4.8,4.8,0,0,0,25.4,11h-1V7.2a5,5,0,0,0-5.8-5.1,5.1,5.1,0,0,0-4,5V21.9l-2.4-2.4A4.9,4.9,0,0,0,8.7,18a4.6,4.6,0,0,0-3.4,1.5,4.1,4.1,0,0,0-1.3,3,7.9,7.9,0,0,0,1.3,4C6.5,28.7,13.8,41.3,16,45a1.9,1.9,0,0,0,1.7,1H36.5a2,2,0,0,0,2-1.5l3.4-13.2a1.3,1.3,0,0,0,.1-.6V21.2A5.2,5.2,0,0,0,38.1,16.1ZM35.1,42H18.8c-2.7-4.5-9-15.5-10.1-17.5-.1-.2-1.1-1.8-.7-2.2l.7-.3a1.1,1.1,0,0,1,.7.3l5.8,6a2,2,0,0,0,3.3-1.4V7a1,1,0,0,1,2,0V21a1.9,1.9,0,0,0,1.9,2h0a2,2,0,0,0,2-2V16a1,1,0,0,1,1-1,1,1,0,0,1,.9,1v6a2,2,0,0,0,2,2h0a2,2,0,0,0,2-2V19a.9.9,0,0,1,.9-1,.9.9,0,0,1,1,1v5a2,2,0,0,0,2,2h0a1.9,1.9,0,0,0,1.9-2V21a1,1,0,0,1,2,0v9.5a1.3,1.3,0,0,1-.1.6Z"/></svg>적용</button>
+            </div>
+            <div class="group">
+                <span class="label">셀</span>
+                <span class="label">W</span><input class="size-input" id="cell-w-input" type="number" min="16" max="200" value="40">
+                <span class="label">H</span><input class="size-input" id="cell-h-input" type="number" min="24" max="200" value="44">
+                <span class="label" style="margin-left:8px">신호 H</span><input class="size-input" id="signal-h-input" type="number" min="4" max="200" value="22">
+            </div>
+            <div class="group">
+                <span class="label">행</span><input class="size-input" id="row-count" type="number" min="1" max="200" value="4">
+                <span class="label">열</span><input class="size-input" id="col-count" type="number" min="1" max="500" value="20">
+            </div>
+            <div class="group">
+                <span class="label">선 굵기</span>
+                <input class="size-input" id="line-width" type="number" min="1" max="8" step="0.5" value="2">
+            </div>
+        </div>
+
+        <!-- 3줄: 주석 도구 -->
+        <div class="toolbar-row">
+            <div class="group">
+                <span class="label" style="font-weight:700">주석</span>
+                <button class="tool-btn" data-tool="arrow" title="화살표 그리기 (드래그)">
+                    <svg class="dir-icon" viewBox="0 0 22 16"><path d="M2 8h16M13 3l5 5-5 5"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="darrow" title="양방향 화살표 (드래그)">
+                    <svg class="dir-icon" viewBox="0 0 22 16"><path d="M4 8h14M8 4l-4 4 4 4M14 4l4 4-4 4"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="dline" title="점선 (드래그) — 가운데 텍스트 입력 가능">
+                    <svg class="dir-icon" viewBox="0 0 22 16"><path d="M2 8h4M9 8h4M16 8h4"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="text" title="텍스트 추가 (클릭)">T</button>
+                <button class="tool-btn sm" data-tool="move" title="주석 이동"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M45.4,22.6l-5.9-6a2.1,2.1,0,0,0-2.7-.2,1.9,1.9,0,0,0-.2,3L39.2,22H26V8.8l2.6,2.6a1.9,1.9,0,0,0,3-.2,2.1,2.1,0,0,0-.2-2.7l-6-5.9a1.9,1.9,0,0,0-2.8,0l-6,5.9a2.1,2.1,0,0,0-.2,2.7,1.9,1.9,0,0,0,3,.2L22,8.8V22H8.8l2.6-2.6a1.9,1.9,0,0,0-.2-3,2.1,2.1,0,0,0-2.7.2l-5.9,6a1.9,1.9,0,0,0,0,2.8l5.9,6a2.1,2.1,0,0,0,2.7.2,1.9,1.9,0,0,0,.2-3L8.8,26H22V39.2l-2.6-2.6a1.9,1.9,0,0,0-3,.2,2.1,2.1,0,0,0,.2,2.7l6,5.9a1.9,1.9,0,0,0,2.8,0l6-5.9a2.1,2.1,0,0,0,.2-2.7,1.9,1.9,0,0,0-3-.2L26,39.2V26H39.2l-2.6,2.6a1.9,1.9,0,0,0,.2,3,2.1,2.1,0,0,0,2.7-.2l5.9-6A1.9,1.9,0,0,0,45.4,22.6Z"/></svg>이동</button>
+                <button class="tool-btn sm" data-tool="erase" title="주석 삭제"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M24,7.25 C27.1017853,7.25 29.629937,9.70601719 29.7458479,12.7794443 L29.75,13 L37,13 C37.6903559,13 38.25,13.5596441 38.25,14.25 C38.25,14.8972087 37.7581253,15.4295339 37.1278052,15.4935464 L37,15.5 L35.909,15.5 L34.2058308,38.0698451 C34.0385226,40.2866784 32.1910211,42 29.9678833,42 L18.0321167,42 C15.8089789,42 13.9614774,40.2866784 13.7941692,38.0698451 L12.09,15.5 L11,15.5 C10.3527913,15.5 9.8204661,15.0081253 9.75645361,14.3778052 L9.75,14.25 C9.75,13.6027913 10.2418747,13.0704661 10.8721948,13.0064536 L11,13 L18.25,13 C18.25,9.82436269 20.8243627,7.25 24,7.25 Z M33.4021054,15.5 L14.5978946,15.5 L16.2870795,37.8817009 C16.3559711,38.7945146 17.116707,39.5 18.0321167,39.5 L29.9678833,39.5 C30.883293,39.5 31.6440289,38.7945146 31.7129205,37.8817009 L33.4021054,15.5 Z M27.25,20.75 C27.8972087,20.75 28.4295339,21.2418747 28.4935464,21.8721948 L28.5,22 L28.5,33 C28.5,33.6903559 27.9403559,34.25 27.25,34.25 C26.6027913,34.25 26.0704661,33.7581253 26.0064536,33.1278052 L26,33 L26,22 C26,21.3096441 26.5596441,20.75 27.25,20.75 Z M20.75,20.75 C21.3972087,20.75 21.9295339,21.2418747 21.9935464,21.8721948 L22,22 L22,33 C22,33.6903559 21.4403559,34.25 20.75,34.25 C20.1027913,34.25 19.5704661,33.7581253 19.5064536,33.1278052 L19.5,33 L19.5,22 C19.5,21.3096441 20.0596441,20.75 20.75,20.75 Z M24,9.75 C22.2669685,9.75 20.8507541,11.1064548 20.7551448,12.8155761 L20.75,13 L27.25,13 C27.25,11.2050746 25.7949254,9.75 24,9.75 Z"/></svg>삭제</button>
+            </div>
+            <div class="group">
+                <span class="label">선</span>
+                <input type="color" id="line-color" value="#c0392b" title="화살표/점선 색 (새 주석 기본값 / 적용 색)">
+                <span class="label">글자</span>
+                <input type="color" id="anno-text-color" value="#c0392b" title="주석 글자 색 (새 주석 기본값 / 적용 색)">
+                <button class="tool-btn sm" data-tool="annoapply" title="적용: 선택 후 주석을 클릭하면 그 주석에 선·글자색을 적용합니다"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M38.1,16.1a4.8,4.8,0,0,0-2.7.2A4.9,4.9,0,0,0,31.2,14l-1.3.2A4.8,4.8,0,0,0,25.4,11h-1V7.2a5,5,0,0,0-5.8-5.1,5.1,5.1,0,0,0-4,5V21.9l-2.4-2.4A4.9,4.9,0,0,0,8.7,18a4.6,4.6,0,0,0-3.4,1.5,4.1,4.1,0,0,0-1.3,3,7.9,7.9,0,0,0,1.3,4C6.5,28.7,13.8,41.3,16,45a1.9,1.9,0,0,0,1.7,1H36.5a2,2,0,0,0,2-1.5l3.4-13.2a1.3,1.3,0,0,0,.1-.6V21.2A5.2,5.2,0,0,0,38.1,16.1ZM35.1,42H18.8c-2.7-4.5-9-15.5-10.1-17.5-.1-.2-1.1-1.8-.7-2.2l.7-.3a1.1,1.1,0,0,1,.7.3l5.8,6a2,2,0,0,0,3.3-1.4V7a1,1,0,0,1,2,0V21a1.9,1.9,0,0,0,1.9,2h0a2,2,0,0,0,2-2V16a1,1,0,0,1,1-1,1,1,0,0,1,.9,1v6a2,2,0,0,0,2,2h0a2,2,0,0,0,2-2V19a.9.9,0,0,1,.9-1,.9.9,0,0,1,1,1v5a2,2,0,0,0,2,2h0a1.9,1.9,0,0,0,1.9-2V21a1,1,0,0,1,2,0v9.5a1.3,1.3,0,0,1-.1.6Z"/></svg>적용</button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div id="app">
+    <div class="grid-wrap" id="grid-wrap">
+        <table class="grid" id="grid"></table>
+        <svg id="anno-layer"></svg>
+        <div id="anno-html"></div>
+        <div class="resize-handle col"    id="rh-col"></div>
+        <div class="resize-handle row"    id="rh-row"></div>
+        <div class="resize-handle corner" id="rh-corner"></div>
+    </div>
+
+    <div id="wavedrom-panel">
+        <div class="wd-head">
+            <h2>WaveDrom 텍스트</h2>
+            <button class="tool-btn sm" id="copy-wd">복사</button>
+        </div>
+        <textarea id="wd-out" spellcheck="false" readonly></textarea>
+        <p class="hint">WaveDrom 문법으로 변환된 결과입니다. (주석/화살표는 WaveDrom에 담을 수 없어 자체 JSON 포맷을 사용하세요.)</p>
+    </div>
+
+    <div id="import-panel">
+        <div class="imp-head">
+            <h2>자체 JSON 포맷 (저장 / 불러오기)</h2>
+            <div>
+                <button class="tool-btn sm" id="copy-json">복사</button>
+                <button class="tool-btn sm" id="load-json">파형 생성</button>
+            </div>
+        </div>
+        <textarea id="import-in" spellcheck="false" placeholder='여기에 JSON을 붙여넣고 "이 내용 불러오기"를 누르면 복원됩니다.'></textarea>
+        <p class="hint" id="import-msg">파형 + 주석(격자 내 비율 좌표)을 모두 보존하는 무손실 포맷입니다.</p>
+    </div>
+</div>
+
+<div id="ctx-menu"></div>
+<div id="credit">v1.0.0<br>made by heonho.choo</div>
+
+<input type="file" id="file-input" accept=".json,application/json" style="display:none">
+
+<script>
+"use strict";
+/* =========================================================================
+   Waveform Grid Editor
+   - 행(row) = 신호(signal), 열(col) = 시간 스텝
+   - 셀 값 종류: bit(1/0), data(버스), z(High-Z), x(Unknown), empty(빈칸)
+   - 주석: 화살표 / 텍스트. 위치는 "격자 내 비율 좌표(gx,gy)"로 저장
+   ========================================================================= */
+
+/* ---------- 상수 ---------- */
+const NAME_W_MIN = 84; // 신호 이름 칸 최소/기본 너비
+let curNameW = NAME_W_MIN; // 현재 이름 칸 너비(가장 긴 이름에 맞춰 갱신)
+const HEAD_H = 22; // 열 번호 행 높이 (.col-head height)
+const PAINT_PENS = ['bit', 'data', 'z', 'x', 'clear'];
+
+/* ---------- 상태 ---------- */
+let state = {
+    cols: 20,
+    cellW: 40,
+    cellH: 44,
+    signalH: 22, // 파형 진폭(셀 높이와 독립)
+    lineWidth: 2,
+    fillColor: '#add8e6',
+    textColor: '#000000',  // 데이터 글자 색 (현재 칠할 색)
+    lineColor: '#c0392b',  // 주석 선 색 (현재 색)
+    annoTextColor: '#c0392b', // 주석 글자 색 (현재 색)
+    signals: [],      // { name, cells:[ {t,...} ] }
+    annotations: []   // 화살표/텍스트
+};
+let nextAnnoId = 1;
+let nextBusId = 1; // 데이터 버스 식별자 (같은 값이라도 별개 버스를 구분)
+
+let pen = 'bit';      // 현재 셀 펜
+let tool = 'bit';     // 현재 도구 (펜 또는 주석도구)
+
+/* ---------- DOM 참조 ---------- */
+const $ = (s) => document.querySelector(s);
+const gridEl   = $('#grid');
+const wrapEl   = $('#grid-wrap');
+const annoSvg  = $('#anno-layer');
+const annoHtml = $('#anno-html');
+const ctxMenu  = $('#ctx-menu');
+const wdOut    = $('#wd-out');
+const importIn = $('#import-in');
+const importMsg= $('#import-msg');
+const fileInput= $('#file-input');
+
+/* ---------- 셀 헬퍼 ---------- */
+const emptyCell = () => ({ t: 'empty' });
+// 같은 버스 = 같은 id (라벨이 같아도 id가 다르면 별개 버스)
+const sameData = (a, b) => a && b && a.t === 'data' && b.t === 'data' && a.id === b.id;
+
+// 가져온 데이터 셀에 id 보정 (구버전/외부 JSON 호환)
+function normalizeIds(signals) {
+    let maxId = 0;
+    signals.forEach(sig => {
+        let prev = null;
+        sig.cells.forEach(c => {
+            if (c.t === 'data') {
+                if (typeof c.id === 'number') maxId = Math.max(maxId, c.id);
+                else if (prev && prev.t === 'data' && (prev.label || '') === (c.label || '')) c.id = prev.id;
+                else c.id = ++maxId;
+            }
+            prev = c;
+        });
+    });
+    nextBusId = Math.max(nextBusId, maxId + 1);
+}
+
+function makeSignal(name, cells) {
+    const c = cells ? cells.slice() : [];
+    while (c.length < state.cols) c.push(emptyCell());
+    return { name: name || 'signal', cells: c.slice(0, state.cols) };
+}
+
+/* ---------- 초기 시드 데이터 ---------- */
+function seed() {
+    state.signals = [];
+    // clk : 0/1 토글
+    const clk = [];
+    for (let i = 0; i < state.cols; i++) clk.push({ t: 'bit', v: i % 2 });
+    state.signals.push(makeSignal('clk', clk));
+
+    // req : 펄스
+    const req = [];
+    for (let i = 0; i < state.cols; i++) req.push({ t: 'bit', v: (i >= 3 && i <= 6) ? 1 : 0 });
+    state.signals.push(makeSignal('req', req));
+
+    // data : 버스 두 블록
+    const idA = nextBusId++, idB = nextBusId++;
+    const data = [];
+    for (let i = 0; i < state.cols; i++) {
+        if (i >= 3 && i <= 7)       data.push({ t: 'data', id: idA, label: 'A0', color: state.fillColor, tcolor: state.textColor });
+        else if (i >= 8 && i <= 12) data.push({ t: 'data', id: idB, label: 'B1', color: state.fillColor, tcolor: state.textColor });
+        else                        data.push({ t: 'x' });
+    }
+    state.signals.push(makeSignal('data', data));
+
+    // valid
+    const v = [];
+    for (let i = 0; i < state.cols; i++) v.push({ t: 'bit', v: (i >= 3 && i <= 12) ? 1 : 0 });
+    state.signals.push(makeSignal('valid', v));
+}
+
+/* =========================================================================
+   Undo (Ctrl+Z)
+   ========================================================================= */
+const undoStack = [];
+const MAX_UNDO = 100;
+function snapshot() { return JSON.stringify({ s: state, n: nextAnnoId }); }
+function pushUndo() {
+    undoStack.push(snapshot());
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+function undo() {
+    if (!undoStack.length) return;
+    const prev = JSON.parse(undoStack.pop());
+    state = prev.s;
+    nextAnnoId = prev.n;
+    render();
+}
+
+/* =========================================================================
+   렌더링
+   ========================================================================= */
+/* 가장 긴 신호 이름에 맞춰 이름 칸 너비 갱신 */
+function updateNameWidth() {
+    const cv = updateNameWidth._cv || (updateNameWidth._cv = document.createElement('canvas'));
+    const ctx = cv.getContext('2d');
+    ctx.font = '600 13px "Segoe UI","Malgun Gothic",sans-serif'; // .row-name textarea 와 동일
+    let max = 0;
+    state.signals.forEach(s => {
+        String(s.name || '').split('\n').forEach(line => {
+            const w = ctx.measureText(line).width;
+            if (w > max) max = w;
+        });
+    });
+    // 손잡이(14) + textarea 좌우 패딩(16) + 여유(14)
+    curNameW = Math.max(NAME_W_MIN, Math.ceil(max) + 14 + 16 + 14);
+    document.documentElement.style.setProperty('--name-w', curNameW + 'px');
+}
+
+function render() {
+    updateNameWidth();
+    document.documentElement.style.setProperty('--cell-w', state.cellW + 'px');
+    document.documentElement.style.setProperty('--cell-h', state.cellH + 'px');
+    document.documentElement.style.setProperty('--data-font', Math.max(9, Math.min(14, state.cellH * 0.28)) + 'px');
+    renderTable();
+    renderAnnotations();
+    updateWavedrom();
+    // 펜/도구 버튼 활성표시
+    document.querySelectorAll('.tool-btn[data-pen]').forEach(b =>
+        b.classList.toggle('active', tool === b.dataset.pen));
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b =>
+        b.classList.toggle('active', tool === b.dataset.tool));
+    $('#cell-w-input').value = state.cellW;
+    $('#cell-h-input').value = state.cellH;
+    $('#signal-h-input').value = state.signalH;
+    $('#row-count').value = state.signals.length;
+    $('#col-count').value = state.cols;
+    $('#line-width').value = state.lineWidth;
+}
+
+function renderTable() {
+    const cols = state.cols;
+    let html = '<thead><tr><th class="corner">신호 \\ 시간</th>';
+    for (let c = 0; c < cols; c++) html += `<th class="col-head">${c}</th>`;
+    html += '</tr></thead><tbody>';
+
+    state.signals.forEach((sig, r) => {
+        html += `<tr data-r="${r}">`;
+        html += `<td class="row-name">
+                    <div class="rn-inner">
+                        <div class="row-grip" title="드래그하여 순서 변경">⠿</div>
+                        <textarea rows="1" data-r="${r}" spellcheck="false">${escapeHtml(sig.name)}</textarea>
+                    </div>
+                 </td>`;
+        for (let c = 0; c < cols; c++) {
+            const cell = sig.cells[c] || emptyCell();
+            const prev = c > 0 ? sig.cells[c - 1] : null;
+            const next = c < cols - 1 ? sig.cells[c + 1] : null;
+            const { svg, label, ztop } = cellSVG(cell, prev, next);
+            const z = ztop ? ' style="z-index:3"' : '';
+            html += `<td class="cell" data-r="${r}" data-c="${c}"${z}>${svg}${label}</td>`;
+        }
+        html += '</tr>';
+    });
+    html += '</tbody>';
+    gridEl.innerHTML = html;
+
+    // 신호 이름 textarea 높이 자동
+    gridEl.querySelectorAll('.row-name textarea').forEach(autoGrow);
+}
+
+/* 한 셀의 SVG 문자열 생성 */
+function cellSVG(cell, prev, next) {
+    const W = state.cellW, H = state.cellH;
+    const mid = H * 0.5;
+    const amp = Math.min(state.signalH, H); // 진폭(셀 높이와 독립, 셀을 넘지 않게)
+    const hi = mid - amp / 2, lo = mid + amp / 2;
+    const e = Math.min(6, W * 0.18); // 데이터 버스 전환부 경사 폭 (짧게)
+    const lw = state.lineWidth;
+    // 굵기를 화면 픽셀 기준 고정(비균일 스케일에도 가로=세로 굵기 동일) + 코너 매끄럽게
+    const pe = 'vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"';
+    const open = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+    let body = '', label = '', ztop = false;
+
+    if (cell.t === 'bit') {
+        const y = cell.v ? hi : lo;
+        let d;
+        if (prev && prev.t === 'bit' && (prev.v ? hi : lo) !== y) {
+            const py = prev.v ? hi : lo;
+            d = `M0 ${py} L0 ${y} L${W} ${y}`; // 경계에서 수직 전환
+        } else {
+            d = `M0 ${y} L${W} ${y}`;
+        }
+        body = `<path d="${d}" fill="none" stroke="#000" stroke-width="${lw}" ${pe}/>`;
+
+    } else if (cell.t === 'z') {
+        let d = `M0 ${mid} L${W} ${mid}`;
+        if (prev && prev.t === 'bit') d = `M0 ${prev.v ? hi : lo} L0 ${mid} ` + d;
+        body = `<path d="${d}" fill="none" stroke="#e53935" stroke-width="${lw}" ${pe}/>`;
+
+    } else if (cell.t === 'x') {
+        let d = `M0 ${mid} L${W} ${mid}`;
+        if (prev && prev.t === 'bit') d = `M0 ${prev.v ? hi : lo} L0 ${mid} ` + d;
+        body = `<path d="${d}" fill="none" stroke="#f59e0b" stroke-width="${lw}" stroke-dasharray="4 3" ${pe}/>`;
+
+    } else if (cell.t === 'data') {
+        const isStart = !sameData(prev, cell);
+        const isEnd   = !sameData(next, cell);
+        const li = isStart ? e : 0;
+        const ri = isEnd ? e : 0;
+        // 채움 폴리곤
+        const pts = [];
+        if (isStart) pts.push([0, mid]);
+        pts.push([li, hi]);
+        pts.push([W - ri, hi]);
+        if (isEnd) pts.push([W, mid]);
+        pts.push([W - ri, lo]);
+        pts.push([li, lo]);
+        const poly = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+        // 상/하 경계를 각각 끊김 없는 연속 선으로 → 코너가 매끄럽게 이어짐
+        const pl = a => 'M' + a.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+        const topPts = [];
+        if (isStart) topPts.push([0, mid], [e, hi]); else topPts.push([0, hi]);
+        topPts.push([W - ri, hi]);
+        if (isEnd) topPts.push([W, mid]);
+        const botPts = [];
+        if (isStart) botPts.push([0, mid], [e, lo]); else botPts.push([0, lo]);
+        botPts.push([W - ri, lo]);
+        if (isEnd) botPts.push([W, mid]);
+        const d = pl(topPts) + ' ' + pl(botPts);
+        body =
+            `<polygon points="${poly}" fill="${cell.color || state.fillColor}" fill-opacity="0.55" stroke="none"/>` +
+            `<path d="${d}" fill="none" stroke="#000" stroke-width="${lw}" ${pe}/>`;
+        if (isStart) {
+            // 런 길이를 구해 라벨을 런 가운데로
+            let runLen = 1;
+            // next 들을 모를 수 있으므로 호출부에서 next만 주어짐 -> 여기선 라벨 폭을 런 길이로 못 구함.
+            // 대신 라벨 폭은 셀 단위로 확장: 아래 renderTable 이후 별도 보정 대신, data-run 길이를 셀에 표시.
+            label = `<div class="data-label" data-run-start="1" style="color:${cell.tcolor || state.textColor}">${escapeHtml(cell.label || '')}</div>`;
+            ztop = true;
+        }
+    }
+    // empty 는 본문 없음 (격자만)
+    return { svg: open + body + '</svg>', label, ztop };
+}
+
+/* data 라벨을 런 가운데로 넓혀주는 보정 (렌더 후 1회) */
+function fixDataLabels() {
+    state.signals.forEach((sig, r) => {
+        for (let c = 0; c < state.cols; c++) {
+            const cell = sig.cells[c];
+            if (cell && cell.t === 'data' && !sameData(sig.cells[c - 1], cell)) {
+                let len = 1;
+                while (sameData(sig.cells[c + len], cell)) len++;
+                const td = gridEl.querySelector(`td.cell[data-r="${r}"][data-c="${c}"] .data-label`);
+                if (td) td.style.width = (len * state.cellW) + 'px';
+            }
+        }
+    });
+}
+
+/* =========================================================================
+   주석 렌더링 (화살표 SVG + 텍스트 div)
+   ========================================================================= */
+// 캡처 모드에서는 열 번호 행(.col-head)이 숨겨져 셀이 위로 올라가므로 헤더 오프셋을 0으로
+function headOffset() { return document.body.classList.contains('capture') ? 0 : HEAD_H; }
+function gridW() { return curNameW + state.cols * state.cellW; }
+function gridH() { return headOffset() + state.signals.length * state.cellH; }
+function g2px(gx, gy) { return [curNameW + gx * state.cellW, headOffset() + gy * state.cellH]; }
+function px2g(x, y) { return [(x - curNameW) / state.cellW, (y - headOffset()) / state.cellH]; }
+
+let editingLineId = null; // 화살표/점선 가운데 텍스트 편집 중인 주석 id
+function renderAnnotations() {
+    annoSvg.setAttribute('width', gridW());
+    annoSvg.setAttribute('height', gridH());
+    let svg = '';
+    let htmls = '';
+    state.annotations.forEach(a => {
+        if (a.type === 'arrow') {
+            svg += arrowSVG(a);
+            if ((a.text && a.text.length) || editingLineId === a.id) htmls += lineTextHTML(a);
+        } else if (a.type === 'text') {
+            htmls += textHTML(a);
+        }
+    });
+    annoSvg.innerHTML = svg;
+    annoHtml.innerHTML = htmls;
+}
+
+function arrowHead(tx, ty, ang, col) {
+    const hl = 10, hw = Math.PI * 0.82;
+    const ax = tx + hl * Math.cos(ang + hw), ay = ty + hl * Math.sin(ang + hw);
+    const bx = tx + hl * Math.cos(ang - hw), by = ty + hl * Math.sin(ang - hw);
+    return `<polygon class="anno-arrow-head" points="${tx.toFixed(1)},${ty.toFixed(1)} ${ax.toFixed(1)},${ay.toFixed(1)} ${bx.toFixed(1)},${by.toFixed(1)}" style="fill:${col}"/>`;
+}
+function arrowSVG(a) {
+    const [x1, y1] = g2px(a.from.gx, a.from.gy);
+    const [x2, y2] = g2px(a.to.gx, a.to.gy);
+    const col = a.color || '#c0392b';
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const mode = a.heads || (a.bi ? 'both' : 'end'); // 'end' | 'both' | 'none'(점선)
+    let heads = '';
+    if (mode === 'end' || mode === 'both') heads += arrowHead(x2, y2, ang, col);
+    if (mode === 'both') heads += arrowHead(x1, y1, ang + Math.PI, col);
+    const dash = a.dashed ? ' stroke-dasharray="6 4"' : '';
+    return `<g data-anno="${a.id}">
+        <path class="anno-hit" d="M${x1} ${y1} L${x2} ${y2}" stroke="transparent" stroke-width="14" fill="none"/>
+        <path class="anno-arrow" d="M${x1} ${y1} L${x2} ${y2}" style="stroke:${col}"${dash}/>
+        ${heads}
+        <circle class="anno-handle" data-anno="${a.id}" data-end="1" cx="${x1}" cy="${y1}" r="5"/>
+        <circle class="anno-handle" data-anno="${a.id}" data-end="2" cx="${x2}" cy="${y2}" r="5"/>
+    </g>`;
+}
+
+function textHTML(a) {
+    const [x, y] = g2px(a.at.gx, a.at.gy);
+    const col = a.color || '#c0392b';
+    return `<div class="anno-text left" data-anno="${a.id}" contenteditable="true" spellcheck="false"
+                 style="left:${x}px; top:${y}px; color:${col}">${escapeHtml(a.text || '')}</div>`;
+}
+/* 화살표/점선 가운데(중점)에 놓이는 텍스트 */
+function lineTextHTML(a) {
+    const [x1, y1] = g2px(a.from.gx, a.from.gy);
+    const [x2, y2] = g2px(a.to.gx, a.to.gy);
+    const col = a.tcolor || a.color || '#c0392b';
+    return `<div class="anno-text line-text" data-anno="${a.id}" contenteditable="true" spellcheck="false"
+                 style="left:${(x1 + x2) / 2}px; top:${(y1 + y2) / 2}px; color:${col}">${escapeHtml(a.text || '')}</div>`;
+}
+function editLineText(id) {
+    const a = findAnno(id);
+    if (!a || a.type !== 'arrow') return;
+    editingLineId = id;
+    renderAnnotations();
+    const el = annoHtml.querySelector(`.anno-text[data-anno="${id}"]`);
+    if (el) { el.focus(); placeCaretEnd(el); }
+}
+
+/* =========================================================================
+   WaveDrom 변환
+   ========================================================================= */
+function updateWavedrom() {
+    const sigs = state.signals.map(sig => {
+        let wave = '';
+        const data = [];
+        let prevSig = null;
+        sig.cells.forEach(cell => {
+            const sigKey = cellKey(cell);
+            if (prevSig !== null && sigKey === prevSig) {
+                wave += '.';
+            } else {
+                if (cell.t === 'bit')       wave += cell.v ? '1' : '0';
+                else if (cell.t === 'data') { wave += '='; data.push(cell.label || ''); }
+                else if (cell.t === 'z')    wave += 'z';
+                else if (cell.t === 'x')    wave += 'x';
+                else                        wave += 'z'; // empty -> 플로팅으로 표현
+            }
+            prevSig = sigKey;
+        });
+        const o = { name: sig.name, wave };
+        if (data.length) o.data = data;
+        return o;
+    });
+    const obj = { signal: sigs };
+    wdOut.value = toWaveJson(obj);
+    fixDataLabels();
+}
+
+function cellKey(cell) {
+    if (cell.t === 'data') return 'data:' + cell.id;
+    if (cell.t === 'bit')  return 'bit:' + cell.v;
+    if (cell.t === 'empty') return 'z'; // empty 는 z 와 동일 시그니처로 묶음
+    return cell.t;
+}
+
+/* 보기 좋은 WaveDrom JSON (signal 배열은 한 줄씩) */
+function toWaveJson(obj) {
+    let out = '{ "signal": [\n';
+    out += obj.signal.map(s => '  ' + JSON.stringify(s)).join(',\n');
+    out += '\n] }';
+    return out;
+}
+
+/* =========================================================================
+   자체 JSON 포맷 (무손실)
+   ========================================================================= */
+function exportObject() {
+    return {
+        version: '1.0.0',
+        grid: { cols: state.cols, cellW: state.cellW, cellH: state.cellH, signalH: state.signalH, lineWidth: state.lineWidth, fillColor: state.fillColor, textColor: state.textColor, lineColor: state.lineColor, annoTextColor: state.annoTextColor },
+        signals: state.signals.map(s => ({ name: s.name, cells: s.cells })),
+        annotations: state.annotations
+    };
+}
+function exportJSONText() { return JSON.stringify(exportObject(), null, 2); }
+
+function importFromText(text) {
+    let obj;
+    try { obj = JSON.parse(text); }
+    catch (e) { return setMsg('JSON 파싱 실패: ' + e.message, false); }
+    if (!obj || !Array.isArray(obj.signals)) return setMsg('형식이 올바르지 않습니다 (signals 누락).', false);
+    pushUndo();
+    const g = obj.grid || {};
+    state.cols = g.cols || (obj.signals[0] && obj.signals[0].cells.length) || 20;
+    state.cellW = g.cellW || 40;
+    state.cellH = g.cellH || 44;
+    state.signalH = g.signalH || 22;
+    state.lineWidth = g.lineWidth || 2;
+    state.fillColor = g.fillColor || '#add8e6';
+    state.textColor = g.textColor || '#000000';
+    state.lineColor = g.lineColor || '#c0392b';
+    state.annoTextColor = g.annoTextColor || '#c0392b';
+    $('#fill-color').value = state.fillColor;
+    $('#data-text-color').value = state.textColor;
+    $('#line-color').value = state.lineColor;
+    $('#anno-text-color').value = state.annoTextColor;
+    state.signals = obj.signals.map(s => makeSignal(s.name, s.cells));
+    normalizeIds(state.signals);
+    state.annotations = (obj.annotations || []).map(a => {
+        a.id = a.id || nextAnnoId++;
+        if (a.id >= nextAnnoId) nextAnnoId = a.id + 1;
+        return a;
+    });
+    render();
+    setMsg('불러오기 완료.', true);
+}
+function setMsg(text, ok) {
+    importMsg.textContent = text;
+    importMsg.className = ok ? 'ok' : 'err';
+}
+
+/* =========================================================================
+   캡처 이미지 (JPG) — 캡처 모드 모양(격자/번호 없음)을 standalone SVG로 재구성
+   ========================================================================= */
+const SVG_FONT = 'Segoe UI,Malgun Gothic,sans-serif';
+function captureTextLines(x, y, text, col, size, anchor) {
+    const lines = String(text).split('\n');
+    const lh = size * 1.25;
+    const startY = y - (lines.length - 1) * lh / 2;
+    const tspans = lines.map((ln, i) =>
+        `<tspan x="${x}" dy="${i === 0 ? 0 : lh}">${escapeHtml(ln)}</tspan>`).join('');
+    return `<text x="${x}" y="${startY}" text-anchor="${anchor}" dominant-baseline="middle"` +
+        ` font-family="${SVG_FONT}" font-size="${size}" font-weight="600"` +
+        ` fill="${col}" stroke="#fff" stroke-width="3" paint-order="stroke">${tspans}</text>`;
+}
+function buildCaptureSVG() {
+    const cw = state.cellW, ch = state.cellH;
+    const W = curNameW + state.cols * cw;
+    const H = state.signals.length * ch;
+    const cg = (gx, gy) => [curNameW + gx * cw, gy * ch]; // 헤더 없음(offset 0)
+    const parts = [`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>`];
+
+    const labels = []; // 데이터 라벨은 모든 셀 위에 그려야 함(반투명 채움에 덮이지 않도록)
+    state.signals.forEach((sig, r) => {
+        const y0 = r * ch;
+        // 신호 이름 (좌측, 세로 중앙)
+        const lines = String(sig.name || '').split('\n');
+        const lh = 16, sy = y0 + ch / 2 - (lines.length - 1) * lh / 2;
+        lines.forEach((ln, i) => {
+            parts.push(`<text x="8" y="${sy + i * lh}" font-family="${SVG_FONT}" font-size="13"` +
+                ` font-weight="600" fill="#333" dominant-baseline="middle">${escapeHtml(ln)}</text>`);
+        });
+        // 파형 (셀 SVG 재사용 → 위치 지정 nested svg)
+        for (let c = 0; c < state.cols; c++) {
+            const cell = sig.cells[c] || emptyCell();
+            const prev = c > 0 ? sig.cells[c - 1] : null;
+            const next = c < state.cols - 1 ? sig.cells[c + 1] : null;
+            const { svg } = cellSVG(cell, prev, next);
+            const x0 = curNameW + c * cw;
+            parts.push(svg
+                .replace('<svg ', `<svg x="${x0}" y="${y0}" width="${cw}" height="${ch}" `)
+                .replace(/ vector-effect="non-scaling-stroke"/g, ''));
+            // 데이터 라벨 (런 가운데) — 나중에 맨 위에 그림
+            if (cell.t === 'data' && !sameData(prev, cell) && (cell.label || '') !== '') {
+                let len = 1; while (sameData(sig.cells[c + len], cell)) len++;
+                labels.push(`<text x="${curNameW + (c + len / 2) * cw}" y="${y0 + ch / 2}"` +
+                    ` text-anchor="middle" dominant-baseline="middle" font-family="${SVG_FONT}"` +
+                    ` font-size="11" font-weight="600" fill="${cell.tcolor || state.textColor}">${escapeHtml(cell.label)}</text>`);
+            }
+        }
+    });
+    parts.push(...labels); // 모든 셀 채움 위에 데이터 라벨
+
+    // 주석
+    state.annotations.forEach(a => {
+        if (a.type === 'arrow') {
+            const [x1, y1] = cg(a.from.gx, a.from.gy);
+            const [x2, y2] = cg(a.to.gx, a.to.gy);
+            const col = a.color || '#c0392b';
+            const ang = Math.atan2(y2 - y1, x2 - x1);
+            const mode = a.heads || (a.bi ? 'both' : 'end');
+            const dash = a.dashed ? ' stroke-dasharray="6 4"' : '';
+            parts.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="2"${dash}/>`);
+            if (mode === 'end' || mode === 'both') parts.push(arrowHead(x2, y2, ang, col));
+            if (mode === 'both') parts.push(arrowHead(x1, y1, ang + Math.PI, col));
+            if (a.text) parts.push(captureTextLines((x1 + x2) / 2, (y1 + y2) / 2, a.text, a.tcolor || col, 12, 'middle'));
+        } else if (a.type === 'text') {
+            const [x, y] = cg(a.at.gx, a.at.gy);
+            parts.push(captureTextLines(x, y, a.text || '', a.color || '#c0392b', 12, 'start'));
+        }
+    });
+
+    return { inner: parts.join('\n'), W, H };
+}
+function saveCaptureJPG() {
+    const { inner, W, H } = buildCaptureSVG();
+    const scale = 2;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * scale}" height="${H * scale}" viewBox="0 0 ${W} ${H}">${inner}</svg>`;
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    const img = new Image();
+    img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = W * scale; cv.height = H * scale;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        cv.toBlob(b => { if (b) saveBlob(b, 'waveform.jpg', 'image/jpeg', ['.jpg', '.jpeg']); }, 'image/jpeg', 0.95);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); alert('캡처 이미지 생성에 실패했습니다.'); };
+    img.src = url;
+}
+async function saveBlob(blob, name, mime, exts) {
+    if (window.showSaveFilePicker) {
+        try {
+            const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ accept: { [mime]: exts } }] });
+            const w = await h.createWritable(); await w.write(blob); await w.close(); return;
+        } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+}
+
+/* =========================================================================
+   셀 그리기 (펜)
+   ========================================================================= */
+let painting = null;        // { level } 또는 null  (bit/z/x/clear 용)
+let paintUndoPushed = false; // 드래그 1회당 undo 한 번만
+let dataDrag = null;        // 데이터 버스 미리보기 드래그 상태
+
+function sameCell(a, b) {
+    if (!a || a.t !== b.t) return false;
+    if (a.t === 'bit') return a.v === b.v;
+    if (a.t === 'data') return (a.label || '') === (b.label || '');
+    return true;
+}
+/* 펜을 한 셀에 적용. 실제 변화가 있으면 true (없으면 렌더 안 함 → 더블클릭 보존) */
+function applyPen(r, c, level) {
+    const sig = state.signals[r];
+    if (!sig) return false;
+    const cur = sig.cells[c];
+    let next;
+    if (pen === 'bit')        next = { t: 'bit', v: level };
+    else if (pen === 'data') { if (cur.t === 'data') return false; next = { t: 'data', label: '' }; }
+    else if (pen === 'z')     next = { t: 'z' };
+    else if (pen === 'x')     next = { t: 'x' };
+    else if (pen === 'clear') next = emptyCell();
+    else return false;
+    if (sameCell(cur, next)) return false;
+    if (!paintUndoPushed) { pushUndo(); paintUndoPushed = true; }
+    sig.cells[c] = next;
+    return true;
+}
+
+gridEl.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const td = e.target.closest('td.cell');
+    if (!td) return;
+    const r = +td.dataset.r, c = +td.dataset.c;
+
+    // 채우기 도구: 클릭한 버스에 현재 데이터 색을 칠함
+    if (tool === 'fill') {
+        e.preventDefault();
+        const cell = state.signals[r].cells[c];
+        if (cell && cell.t === 'data') { pushUndo(); fillBus(r, c); render(); }
+        return;
+    }
+
+    if (!PAINT_PENS.includes(tool)) return; // 주석 도구일 땐 무시
+    e.preventDefault();
+
+    // 데이터 버스: 드래그하는 동안 미리보기, 놓는 순간 확정
+    if (pen === 'data') {
+        const sig = state.signals[r];
+        dataDrag = { r, startC: c, endC: c, busId: nextBusId++, orig: sig.cells.slice(), moved: false };
+        document.body.classList.add('painting');
+        return;
+    }
+
+    let level = 1;
+    if (pen === 'bit') {
+        const rect = td.getBoundingClientRect();
+        level = (e.clientY - rect.top) < rect.height / 2 ? 1 : 0;
+    }
+    paintUndoPushed = false;
+    painting = { level };
+    document.body.classList.add('painting');
+    if (applyPen(r, c, level)) render();
+});
+
+/* 데이터 버스 미리보기 (드래그 중) */
+function previewData() {
+    const sig = state.signals[dataDrag.r];
+    sig.cells = dataDrag.orig.slice();
+    const a = Math.min(dataDrag.startC, dataDrag.endC);
+    const b = Math.max(dataDrag.startC, dataDrag.endC);
+    for (let i = a; i <= b; i++) sig.cells[i] = { t: 'data', id: dataDrag.busId, label: '', color: state.fillColor, tcolor: state.textColor };
+    render();
+}
+
+/* 채우기: 클릭한 셀이 속한 버스(연속 같은 id)에 현재 채움색·글자색 적용 */
+function fillBus(r, c) {
+    const sig = state.signals[r];
+    const cell = sig.cells[c];
+    if (!cell || cell.t !== 'data') return;
+    const color = $('#fill-color').value;
+    const tcolor = $('#data-text-color').value;
+    let start = c; while (start > 0 && sameData(sig.cells[start - 1], cell)) start--;
+    let end = c;   while (end < state.cols - 1 && sameData(sig.cells[end + 1], cell)) end++;
+    for (let i = start; i <= end; i++) { sig.cells[i].color = color; sig.cells[i].tcolor = tcolor; }
+}
+
+/* 데이터 셀 더블클릭 -> 라벨 편집 */
+gridEl.addEventListener('dblclick', e => {
+    const td = e.target.closest('td.cell');
+    if (!td) return;
+    const r = +td.dataset.r, c = +td.dataset.c;
+    const cell = state.signals[r].cells[c];
+    if (cell.t === 'data') editDataLabel(r, c);
+});
+
+function editDataLabel(r, c) {
+    const sig = state.signals[r];
+    const cell = sig.cells[c];
+    // 런 시작 위치 찾기
+    let start = c;
+    while (start > 0 && sameData(sig.cells[start - 1], cell)) start--;
+    let len = 1;
+    while (sameData(sig.cells[start + len], cell)) len++;
+    const td = gridEl.querySelector(`td.cell[data-r="${r}"][data-c="${start}"]`);
+    const rect = td.getBoundingClientRect();
+    const wrapRect = wrapEl.getBoundingClientRect();
+    const ghost = td.querySelector('.data-label'); // 편집 중엔 원래 라벨 숨김(겹침 방지)
+    if (ghost) ghost.style.visibility = 'hidden';
+    const inp = document.createElement('input');
+    inp.className = 'lbl-edit';
+    inp.value = cell.label || '';
+    inp.style.left = (rect.left - wrapRect.left) + 'px';
+    inp.style.top  = (rect.top - wrapRect.top) + 'px';
+    inp.style.width = (len * state.cellW) + 'px';
+    inp.style.color = inp.style.caretColor = cell.tcolor || state.textColor;
+    wrapEl.appendChild(inp);
+    inp.focus(); inp.select();
+    let done = false;
+    const commit = () => {
+        if (done) return; done = true;
+        pushUndo();
+        const label = inp.value;
+        for (let i = start; i < start + len; i++) sig.cells[i] = { t: 'data', id: cell.id, label, color: sig.cells[i].color, tcolor: sig.cells[i].tcolor };
+        inp.remove();
+        render();
+    };
+    const cancel = () => {
+        if (done) return; done = true;
+        inp.remove();
+        render();
+    };
+    inp.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+    });
+    inp.addEventListener('blur', commit);
+}
+
+/* =========================================================================
+   신호 이름 편집 / 행 순서 변경 / 컨텍스트 메뉴
+   ========================================================================= */
+gridEl.addEventListener('input', e => {
+    const ta = e.target.closest('.row-name textarea');
+    if (!ta) return;
+    const r = +ta.dataset.r;
+    state.signals[r].name = ta.value;
+    autoGrow(ta);
+    updateNameWidth();      // 가장 긴 이름에 맞춰 칸 너비 갱신(타이핑 중에도)
+    renderAnnotations();    // 격자 이동에 맞춰 주석 위치 보정(표는 그대로라 포커스 유지)
+    updateWavedrom();
+});
+
+function autoGrow(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, state.cellH - 4) + 'px';
+}
+
+/* 행(신호) 드래그 재정렬 */
+let rowDrag = null;
+gridEl.addEventListener('mousedown', e => {
+    const grip = e.target.closest('.row-grip');
+    if (!grip) return;
+    e.preventDefault();
+    const tr = grip.closest('tr');
+    rowDrag = { from: +tr.dataset.r, overTr: null, after: false };
+    document.body.classList.add('row-dragging');
+    tr.classList.add('row-drag-src');
+});
+document.addEventListener('mousemove', e => {
+    if (!rowDrag) return;
+    const tr = e.target.closest && e.target.closest('tr[data-r]');
+    gridEl.querySelectorAll('.drop-before,.drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+    if (tr) {
+        const rect = tr.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2;
+        tr.classList.add(after ? 'drop-after' : 'drop-before');
+        rowDrag.overTr = +tr.dataset.r;
+        rowDrag.after = after;
+    }
+});
+
+/* 셀 페인팅 / 행드래그 / 기타 공통 mouseup, mousemove */
+document.addEventListener('mousemove', e => {
+    if (dataDrag) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const td = el && el.closest && el.closest('td.cell');
+        if (td && +td.dataset.r === dataDrag.r) {
+            const c = +td.dataset.c;
+            if (c !== dataDrag.endC) {
+                dataDrag.endC = c;
+                if (c !== dataDrag.startC) dataDrag.moved = true;
+                previewData();
+            }
+        }
+        return;
+    }
+    if (painting) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const td = el && el.closest && el.closest('td.cell');
+        if (td && applyPen(+td.dataset.r, +td.dataset.c, painting.level)) render();
+    }
+});
+document.addEventListener('mouseup', () => {
+    if (dataDrag) {
+        const sig = state.signals[dataDrag.r];
+        const startCell = dataDrag.orig[dataDrag.startC];
+        // 움직였거나, 빈/비데이터 셀에서 시작했으면 확정. (기존 data 셀 단순 클릭은 더블클릭 편집을 위해 보존)
+        const commit = dataDrag.moved || !(startCell && startCell.t === 'data');
+        if (commit) {
+            sig.cells = dataDrag.orig.slice();
+            pushUndo();
+            const a = Math.min(dataDrag.startC, dataDrag.endC);
+            const b = Math.max(dataDrag.startC, dataDrag.endC);
+            for (let i = a; i <= b; i++) sig.cells[i] = { t: 'data', id: dataDrag.busId, label: '', color: state.fillColor, tcolor: state.textColor };
+            render();
+        }
+        document.body.classList.remove('painting');
+        dataDrag = null;
+    }
+    if (painting) { painting = null; document.body.classList.remove('painting'); }
+    if (rowDrag) {
+        const { from, overTr, after } = rowDrag;
+        if (overTr !== null && overTr !== from) {
+            pushUndo();
+            let to = overTr + (after ? 1 : 0);
+            const [moved] = state.signals.splice(from, 1);
+            if (from < to) to--;
+            state.signals.splice(to, 0, moved);
+            render();
+        }
+        document.body.classList.remove('row-dragging');
+        gridEl.querySelectorAll('.row-drag-src,.drop-before,.drop-after')
+            .forEach(x => x.classList.remove('row-drag-src', 'drop-before', 'drop-after'));
+        rowDrag = null;
+    }
+});
+
+/* 우클릭 컨텍스트 메뉴 */
+gridEl.addEventListener('contextmenu', e => {
+    const cellTd = e.target.closest('td.cell');
+    const nameTd = e.target.closest('.row-name');
+    if (!cellTd && !nameTd) return;
+    e.preventDefault();
+    const r = +(cellTd || nameTd.querySelector('textarea')).dataset.r;
+    const c = cellTd ? +cellTd.dataset.c : null;
+    const items = [];
+    if (c !== null) {
+        items.push(['이 열 앞에 열 삽입', () => { insertCol(c); }]);
+        items.push(['이 열 삭제', () => { deleteCol(c); }]);
+        items.push(['hr']);
+    }
+    items.push(['위에 신호 추가', () => { insertSignal(r); }]);
+    items.push(['아래에 신호 추가', () => { insertSignal(r + 1); }]);
+    items.push(['CLK 생성 (0101…)', () => { makeClock(r); }]);
+    items.push(['신호 삭제', () => { deleteSignal(r); }, 'danger']);
+    showCtx(e.clientX, e.clientY, items);
+});
+function showCtx(x, y, items) {
+    ctxMenu.innerHTML = '';
+    items.forEach(it => {
+        if (it[0] === 'hr') { ctxMenu.appendChild(document.createElement('hr')); return; }
+        const b = document.createElement('button');
+        b.textContent = it[0];
+        if (it[2]) b.className = it[2];
+        b.onclick = () => { hideCtx(); it[1](); };
+        ctxMenu.appendChild(b);
+    });
+    ctxMenu.style.left = x + 'px';
+    ctxMenu.style.top = y + 'px';
+    ctxMenu.style.display = 'block';
+}
+function hideCtx() { ctxMenu.style.display = 'none'; }
+document.addEventListener('mousedown', e => { if (!e.target.closest('#ctx-menu')) hideCtx(); });
+
+/* 그리드 조작 */
+function insertSignal(idx) {
+    pushUndo();
+    state.signals.splice(idx, 0, makeSignal('signal' + (state.signals.length + 1), []));
+    render();
+}
+function makeClock(idx) {
+    const sig = state.signals[idx];
+    if (!sig) return;
+    pushUndo();
+    for (let i = 0; i < state.cols; i++) sig.cells[i] = { t: 'bit', v: i % 2 };
+    render();
+}
+function deleteSignal(idx) {
+    if (state.signals.length <= 1) return;
+    pushUndo();
+    state.signals.splice(idx, 1);
+    render();
+}
+function insertCol(c) {
+    pushUndo();
+    state.cols++;
+    state.signals.forEach(s => s.cells.splice(c, 0, emptyCell()));
+    render();
+}
+function deleteCol(c) {
+    if (state.cols <= 1) return;
+    pushUndo();
+    state.cols--;
+    state.signals.forEach(s => s.cells.splice(c, 1));
+    render();
+}
+
+/* =========================================================================
+   주석 도구 (화살표 그리기 / 텍스트 / 이동 / 삭제)
+   ========================================================================= */
+let annoDrag = null; // 화살표 그리기 또는 주석 이동
+
+function wrapPx(e) {
+    const rect = annoSvg.getBoundingClientRect();
+    return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+/* anno-layer: 화살표 그리기 시작 / 텍스트 배치 / (이동/삭제는 요소에서 처리) */
+annoSvg.addEventListener('mousedown', e => {
+    if (tool === 'arrow' || tool === 'darrow' || tool === 'dline') {
+        e.preventDefault();
+        const [px, py] = wrapPx(e);
+        const [gx, gy] = px2g(px, py);
+        pushUndo();
+        const heads = tool === 'darrow' ? 'both' : tool === 'dline' ? 'none' : 'end';
+        const dashed = tool === 'dline';
+        const a = { id: nextAnnoId++, type: 'arrow', from: { gx, gy }, to: { gx, gy }, heads, dashed, color: state.lineColor, tcolor: state.annoTextColor, text: '' };
+        state.annotations.push(a);
+        annoDrag = { kind: 'new-arrow', a };
+        renderAnnotations();
+    } else if (tool === 'text') {
+        e.preventDefault();
+        const [px, py] = wrapPx(e);
+        const [gx, gy] = px2g(px, py);
+        pushUndo();
+        const a = { id: nextAnnoId++, type: 'text', at: { gx, gy }, text: '', color: state.annoTextColor };
+        state.annotations.push(a);
+        renderAnnotations();
+        // 새 텍스트에 포커스
+        const el = annoHtml.querySelector(`.anno-text[data-anno="${a.id}"]`);
+        if (el) { placeCaretEnd(el); el.focus(); }
+    } else if (tool === 'move') {
+        const handle = e.target.closest('.anno-handle');
+        const hit = e.target.closest('.anno-hit');
+        if (handle) {
+            e.preventDefault();
+            const a = findAnno(+handle.dataset.anno);
+            pushUndo();
+            annoDrag = { kind: 'handle', a, end: handle.dataset.end };
+            document.body.classList.add('anno-moving');
+        } else if (hit) {
+            e.preventDefault();
+            const a = findAnno(+hit.closest('[data-anno]').dataset.anno);
+            pushUndo();
+            const [px, py] = wrapPx(e);
+            annoDrag = { kind: 'move-arrow', a, start: px2g(px, py) };
+            document.body.classList.add('anno-moving');
+        }
+    } else if (tool === 'erase') {
+        const g = e.target.closest('[data-anno]');
+        if (g) { pushUndo(); removeAnno(+g.dataset.anno); }
+    } else if (tool === 'annoapply') {
+        const g = e.target.closest('[data-anno]');
+        if (g) { pushUndo(); applyAnnoColor(+g.dataset.anno); }
+    }
+});
+
+/* 적용: 클릭한 주석에 현재 선/글자색 적용 */
+function applyAnnoColor(id) {
+    const a = findAnno(id);
+    if (!a) return;
+    if (a.type === 'arrow') { a.color = state.lineColor; a.tcolor = state.annoTextColor; }
+    else if (a.type === 'text') { a.color = state.annoTextColor; }
+    renderAnnotations();
+}
+
+/* 화살표/점선 더블클릭 -> 가운데 텍스트 편집 */
+annoSvg.addEventListener('dblclick', e => {
+    const g = e.target.closest('[data-anno]');
+    if (!g) return;
+    const a = findAnno(+g.dataset.anno);
+    if (a && a.type === 'arrow') { e.preventDefault(); editLineText(a.id); }
+});
+
+/* 텍스트/가운데텍스트 주석: 이동/삭제 (anno-html 위임) */
+annoHtml.addEventListener('mousedown', e => {
+    const el = e.target.closest('.anno-text');
+    if (!el) return;
+    const id = +el.dataset.anno;
+    const a = findAnno(id);
+    if (tool === 'erase') { e.preventDefault(); pushUndo(); removeAnno(id); }
+    else if (tool === 'annoapply') { e.preventDefault(); pushUndo(); applyAnnoColor(id); }
+    else if (tool === 'move') {
+        e.preventDefault();
+        pushUndo();
+        const [px, py] = wrapPx(e);
+        // 화살표/점선의 가운데 텍스트는 선 전체를 이동, 독립 텍스트는 자기만 이동
+        if (a && a.type === 'arrow') annoDrag = { kind: 'move-arrow', a, start: px2g(px, py) };
+        else annoDrag = { kind: 'move-text', a, start: px2g(px, py) };
+        document.body.classList.add('anno-moving');
+    }
+    // 그 외(기본): contenteditable 로 편집
+});
+annoHtml.addEventListener('input', e => {
+    const el = e.target.closest('.anno-text');
+    if (!el) return;
+    const a = findAnno(+el.dataset.anno);
+    if (a) a.text = el.innerText; // 줄바꿈 보존
+});
+annoHtml.addEventListener('blur', e => {
+    const el = e.target.closest('.anno-text');
+    if (!el) return;
+    editingLineId = null;
+    const a = findAnno(+el.dataset.anno);
+    // 독립 텍스트 주석이 비어 있으면 삭제. (화살표/점선의 빈 텍스트는 선은 유지)
+    if (a && a.type === 'text' && !el.innerText.trim()) removeAnno(+el.dataset.anno);
+    else renderAnnotations();
+}, true);
+
+document.addEventListener('mousemove', e => {
+    if (!annoDrag) return;
+    const [px, py] = wrapPx(e);
+    let [gx, gy] = px2g(px, py);
+    const a = annoDrag.a;
+    if (annoDrag.kind === 'new-arrow' || (annoDrag.kind === 'handle' && annoDrag.end === '2')) {
+        if (e.shiftKey) { // Shift: from 기준 수평/수직 고정
+            if (Math.abs(gx - a.from.gx) >= Math.abs(gy - a.from.gy)) gy = a.from.gy; else gx = a.from.gx;
+        }
+        a.to = { gx, gy };
+    } else if (annoDrag.kind === 'handle' && annoDrag.end === '1') {
+        if (e.shiftKey) { // Shift: to 기준 수평/수직 고정
+            if (Math.abs(gx - a.to.gx) >= Math.abs(gy - a.to.gy)) gy = a.to.gy; else gx = a.to.gx;
+        }
+        a.from = { gx, gy };
+    } else if (annoDrag.kind === 'move-arrow') {
+        const dx = gx - annoDrag.start[0], dy = gy - annoDrag.start[1];
+        a.from.gx += dx; a.from.gy += dy; a.to.gx += dx; a.to.gy += dy;
+        annoDrag.start = [gx, gy];
+    } else if (annoDrag.kind === 'move-text') {
+        a.at = { gx, gy };
+    }
+    renderAnnotations();
+});
+document.addEventListener('mouseup', () => {
+    if (annoDrag) {
+        if (annoDrag.kind === 'new-arrow') {
+            const a = annoDrag.a;
+            const [x1, y1] = g2px(a.from.gx, a.from.gy);
+            const [x2, y2] = g2px(a.to.gx, a.to.gy);
+            annoDrag = null;
+            document.body.classList.remove('anno-moving');
+            if (Math.hypot(x2 - x1, y2 - y1) < 6) { removeAnno(a.id); }
+            else { renderAnnotations(); editLineText(a.id); } // 그린 직후 가운데 텍스트 입력
+            return;
+        }
+        annoDrag = null;
+        document.body.classList.remove('anno-moving');
+        renderAnnotations();
+    }
+});
+
+function findAnno(id) { return state.annotations.find(a => a.id === id); }
+function removeAnno(id) {
+    state.annotations = state.annotations.filter(a => a.id !== id);
+    renderAnnotations();
+}
+
+/* =========================================================================
+   리사이즈 핸들 (셀 크기는 고정 · 드래그로 열/행 "개수"를 늘리고 줄임)
+   ========================================================================= */
+function setCols(n) {
+    n = clamp(n, 1, 500);
+    if (n === state.cols) return;
+    if (n > state.cols) {
+        const add = n - state.cols;
+        state.signals.forEach(s => { for (let i = 0; i < add; i++) s.cells.push(emptyCell()); });
+    } else {
+        state.signals.forEach(s => { s.cells.length = n; });
+    }
+    state.cols = n;
+}
+function setRows(n) {
+    n = clamp(n, 1, 200);
+    if (n === state.signals.length) return;
+    if (n > state.signals.length) {
+        while (state.signals.length < n)
+            state.signals.push(makeSignal('signal' + (state.signals.length + 1), []));
+    } else {
+        state.signals.length = n;
+    }
+}
+
+function setupResize(handleId, axis) {
+    const h = document.getElementById(handleId);
+    h.addEventListener('mousedown', e => {
+        e.preventDefault();
+        pushUndo();
+        const startX = e.clientX, startY = e.clientY;
+        const startCols = state.cols, startRows = state.signals.length;
+        const cls = axis === 'col' ? 'resizing-col' : axis === 'row' ? 'resizing-row' : 'resizing-corner';
+        document.body.classList.add(cls, 'resizing');
+        const move = ev => {
+            let changed = false;
+            if (axis === 'col' || axis === 'corner') {
+                const target = startCols + Math.round((ev.clientX - startX) / state.cellW);
+                if (target !== state.cols) { setCols(target); changed = true; }
+            }
+            if (axis === 'row' || axis === 'corner') {
+                const target = startRows + Math.round((ev.clientY - startY) / state.cellH);
+                if (target !== state.signals.length) { setRows(target); changed = true; }
+            }
+            if (changed) render();
+        };
+        const up = () => {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+            document.body.classList.remove(cls, 'resizing');
+            render();
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+}
+
+/* =========================================================================
+   도구/펜 전환
+   ========================================================================= */
+function setTool(t) {
+    tool = t;
+    if (PAINT_PENS.includes(t)) pen = t;
+    document.body.classList.toggle('anno-mode', t === 'arrow' || t === 'darrow' || t === 'dline' || t === 'text');
+    document.body.classList.toggle('erase-mode', t === 'erase');
+    document.body.classList.toggle('move-mode', t === 'move');
+    document.body.classList.toggle('annoapply-mode', t === 'annoapply');
+    document.querySelectorAll('.tool-btn[data-pen]').forEach(b => b.classList.toggle('active', t === b.dataset.pen));
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', t === b.dataset.tool));
+}
+
+/* =========================================================================
+   유틸
+   ========================================================================= */
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function placeCaretEnd(el) {
+    const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+}
+function copyText(t) {
+    if (navigator.clipboard) navigator.clipboard.writeText(t);
+}
+
+/* =========================================================================
+   이벤트 와이어링
+   ========================================================================= */
+function wire() {
+    document.querySelectorAll('.tool-btn[data-pen]').forEach(b =>
+        b.addEventListener('click', () => setTool(b.dataset.pen)));
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b =>
+        b.addEventListener('click', () => setTool(b.dataset.tool)));
+
+    // 데이터 색/글자색 = "현재 칠할 색". 바꿔도 기존 버스에는 영향 없음(채우기/새 버스에만 적용)
+    $('#fill-color').addEventListener('input', e => { state.fillColor = e.target.value; });
+    $('#data-text-color').addEventListener('input', e => { state.textColor = e.target.value; });
+    // 주석 선/글자 색 = "현재 색". 새 주석엔 자동 반영, 기존 주석은 '적용'으로만 변경
+    $('#line-color').addEventListener('input', e => { state.lineColor = e.target.value; });
+    $('#anno-text-color').addEventListener('input', e => { state.annoTextColor = e.target.value; });
+    $('#cell-w-input').addEventListener('change', e => { pushUndo(); state.cellW = clamp(+e.target.value || 40, 16, 200); render(); });
+    $('#cell-h-input').addEventListener('change', e => { pushUndo(); state.cellH = clamp(+e.target.value || 44, 24, 200); render(); });
+    $('#signal-h-input').addEventListener('change', e => { pushUndo(); state.signalH = clamp(+e.target.value || 22, 4, 200); render(); });
+    $('#line-width').addEventListener('change', e => { pushUndo(); state.lineWidth = clamp(+e.target.value || 2, 1, 8); render(); });
+
+    $('#row-count').addEventListener('change', e => { pushUndo(); setRows(clamp(+e.target.value || 1, 1, 200)); render(); });
+    $('#col-count').addEventListener('change', e => { pushUndo(); setCols(clamp(+e.target.value || 1, 1, 500)); render(); });
+    $('#clear-all').addEventListener('click', () => {
+        if (!confirm('모든 셀과 주석을 비웁니다. 계속할까요?')) return;
+        pushUndo();
+        state.signals.forEach(s => { s.cells = s.cells.map(() => emptyCell()); });
+        state.annotations = [];
+        render();
+    });
+
+    $('#capture-btn').addEventListener('click', e => {
+        const on = document.body.classList.toggle('capture');
+        e.currentTarget.classList.toggle('active', on);
+        renderAnnotations(); // 헤더 오프셋 변화 반영
+    });
+    $('#capture-save').addEventListener('click', saveCaptureJPG);
+
+    $('#copy-wd').addEventListener('click', () => copyText(wdOut.value));
+    $('#export-json').addEventListener('click', () => { importIn.value = exportJSONText(); setMsg('현재 상태를 내보냈습니다.', true); });
+    $('#copy-json').addEventListener('click', () => { importIn.value = exportJSONText(); copyText(importIn.value); });
+    $('#load-json').addEventListener('click', () => importFromText(importIn.value));
+
+    $('#save-file').addEventListener('click', async () => {
+        const text = exportJSONText();
+        // 탐색기 "다른 이름으로 저장" 창 (Chromium 계열 지원)
+        if (window.showSaveFilePicker) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: 'waveform.json',
+                    types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+                });
+                const w = await handle.createWritable();
+                await w.write(text);
+                await w.close();
+                setMsg('저장 완료.', true);
+            } catch (e) {
+                if (e.name !== 'AbortError') setMsg('저장 실패: ' + e.message, false);
+            }
+            return;
+        }
+        // 폴백: 다운로드
+        const blob = new Blob([text], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'waveform.json'; a.click();
+        URL.revokeObjectURL(url);
+    });
+    $('#open-file').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => { importIn.value = reader.result; importFromText(reader.result); };
+        reader.readAsText(f);
+        fileInput.value = '';
+    });
+
+    setupResize('rh-col', 'col');
+    setupResize('rh-row', 'row');
+    setupResize('rh-corner', 'corner');
+
+    // 키보드 단축키
+    document.addEventListener('keydown', e => {
+        const t = e.target;
+        const editable = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable);
+        const k = e.key.toLowerCase();
+
+        // Ctrl/Cmd 조합
+        if (e.ctrlKey || e.metaKey) {
+            if (k === 'z') {
+                if (editable) return;          // 입력칸은 브라우저 기본 undo 사용
+                e.preventDefault(); undo();
+            } else if (k === 's') {
+                e.preventDefault(); $('#save-file').click();  // JSON 저장
+            }
+            return;
+        }
+
+        if (editable) return; // 입력 중엔 단축키 무시
+
+        if (k === '1' || k === '0') { e.preventDefault(); setTool('bit'); }
+        else if (k === 'd') { e.preventDefault(); setTool('data'); }
+        else if (k === 'z') { e.preventDefault(); setTool('z'); }
+        else if (k === 'x') { e.preventDefault(); setTool('x'); }
+        else if (k === 'e') { e.preventDefault(); setTool('clear'); }
+        else if (k === 'c') { e.preventDefault(); $('#capture-btn').click(); }
+    });
+}
+
+/* ---------- 시작 ---------- */
+seed();
+wire();
+setTool('bit');
+render();
+</script>
+</body>
+</html>
