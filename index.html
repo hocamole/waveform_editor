@@ -412,6 +412,7 @@ let state = {
 };
 let nextAnnoId = 1;
 let nextBusId = 1; // 데이터 버스 식별자 (같은 값이라도 별개 버스를 구분)
+let uidCounter = 0; // SVG clipPath 등 고유 id 생성용
 
 let pen = 'bit';      // 현재 셀 펜
 let tool = 'bit';     // 현재 도구 (펜 또는 주석도구)
@@ -562,7 +563,7 @@ function renderTable() {
             const cell = sig.cells[c] || emptyCell();
             const prev = c > 0 ? sig.cells[c - 1] : null;
             const next = c < cols - 1 ? sig.cells[c + 1] : null;
-            const { svg, label, ztop } = cellSVG(cell, prev, next);
+            const { svg, label, ztop } = cellSVG(cell, prev, next, c);
             const z = ztop ? ' style="z-index:3"' : '';
             html += `<td class="cell" data-r="${r}" data-c="${c}"${z}>${svg}${label}</td>`;
         }
@@ -576,7 +577,7 @@ function renderTable() {
 }
 
 /* 한 셀의 SVG 문자열 생성 */
-function cellSVG(cell, prev, next) {
+function cellSVG(cell, prev, next, colIdx) {
     const W = state.cellW, H = state.cellH;
     const mid = H * 0.5;
     const amp = Math.min(state.signalH, H); // 진폭(셀 높이와 독립, 셀을 넘지 않게)
@@ -605,34 +606,63 @@ function cellSVG(cell, prev, next) {
         body = `<path d="${d}" fill="none" stroke="#e53935" stroke-width="${lw}" ${pe}/>`;
 
     } else if (cell.t === 'x') {
-        let d = `M0 ${mid} L${W} ${mid}`;
-        if (prev && prev.t === 'bit') d = `M0 ${prev.v ? hi : lo} L0 ${mid} ` + d;
-        body = `<path d="${d}" fill="none" stroke="#f59e0b" stroke-width="${lw}" stroke-dasharray="4 3" ${pe}/>`;
+        // 데이터 버스와 같은 모양 + 내부 검정 사선 해치(1px)
+        const lT = !!prev && prev.t !== 'x'; // 왼쪽 교차 — 실제 다른 값과 만날 때만(그리드 끝이면 평평)
+        const rT = !!next && next.t !== 'x'; // 오른쪽 교차
+        const li = lT ? e : 0, ri = rT ? e : 0;
+        // 클립용 폴리곤(버스 모양)
+        const pts = [];
+        if (lT) pts.push([0, mid]);
+        pts.push([li, hi]); pts.push([W - ri, hi]);
+        if (rT) pts.push([W, mid]);
+        pts.push([W - ri, lo]); pts.push([li, lo]);
+        const poly = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+        // 외곽선(검정): 상/하 연속선 + 시작/끝 사선
+        const topPts = [], botPts = [];
+        if (lT) { topPts.push([0, mid], [e, hi]); botPts.push([0, mid], [e, lo]); }
+        else { topPts.push([0, hi]); botPts.push([0, lo]); }
+        topPts.push([W - ri, hi]); botPts.push([W - ri, lo]);
+        if (rT) { topPts.push([W, mid]); botPts.push([W, mid]); }
+        const pl = a => 'M' + a.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+        const outline = pl(topPts) + ' ' + pl(botPts);
+        // 내부 검정 사선 해치 (폴리곤으로 클립). 위상을 전역 x 기준으로 맞춰 셀 경계에서 끊기지 않게
+        const cid = 'xh' + (uidCounter++);
+        const step = 6, off = (colIdx || 0) * W;
+        let hatch = '';
+        const k0 = Math.ceil((hi + off) / step) * step - off; // (k+off) 가 step 배수가 되도록 정렬
+        for (let k = k0; k <= W + lo; k += step) {
+            hatch += `<line x1="${(k - lo).toFixed(1)}" y1="${lo}" x2="${(k - hi).toFixed(1)}" y2="${hi}"/>`;
+        }
+        body =
+            `<clipPath id="${cid}"><polygon points="${poly}"/></clipPath>` +
+            `<g clip-path="url(#${cid})" stroke="#000" stroke-width="1" fill="none" ${pe}>${hatch}</g>` +
+            `<path d="${outline}" fill="none" stroke="#000" stroke-width="${lw}" ${pe}/>`;
 
     } else if (cell.t === 'data') {
-        const isStart = !sameData(prev, cell);
-        const isEnd   = !sameData(next, cell);
-        const li = isStart ? e : 0;
-        const ri = isEnd ? e : 0;
+        const isStart = !sameData(prev, cell);          // 런 시작(라벨/그룹용)
+        const lT = !!prev && !sameData(prev, cell);     // 왼쪽 교차(taper) — 실제 이웃이 있을 때만
+        const rT = !!next && !sameData(next, cell);     // 오른쪽 교차 — 그리드 끝이면 안 모음
+        const li = lT ? e : 0;
+        const ri = rT ? e : 0;
         // 채움 폴리곤
         const pts = [];
-        if (isStart) pts.push([0, mid]);
+        if (lT) pts.push([0, mid]);
         pts.push([li, hi]);
         pts.push([W - ri, hi]);
-        if (isEnd) pts.push([W, mid]);
+        if (rT) pts.push([W, mid]);
         pts.push([W - ri, lo]);
         pts.push([li, lo]);
         const poly = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
         // 상/하 경계를 각각 끊김 없는 연속 선으로 → 코너가 매끄럽게 이어짐
         const pl = a => 'M' + a.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
         const topPts = [];
-        if (isStart) topPts.push([0, mid], [e, hi]); else topPts.push([0, hi]);
+        if (lT) topPts.push([0, mid], [e, hi]); else topPts.push([0, hi]);
         topPts.push([W - ri, hi]);
-        if (isEnd) topPts.push([W, mid]);
+        if (rT) topPts.push([W, mid]);
         const botPts = [];
-        if (isStart) botPts.push([0, mid], [e, lo]); else botPts.push([0, lo]);
+        if (lT) botPts.push([0, mid], [e, lo]); else botPts.push([0, lo]);
         botPts.push([W - ri, lo]);
-        if (isEnd) botPts.push([W, mid]);
+        if (rT) botPts.push([W, mid]);
         const d = pl(topPts) + ' ' + pl(botPts);
         body =
             `<polygon points="${poly}" fill="${cell.color || state.fillColor}" fill-opacity="0.55" stroke="none"/>` +
@@ -870,7 +900,7 @@ function buildCaptureSVG() {
             const cell = sig.cells[c] || emptyCell();
             const prev = c > 0 ? sig.cells[c - 1] : null;
             const next = c < state.cols - 1 ? sig.cells[c + 1] : null;
-            const { svg } = cellSVG(cell, prev, next);
+            const { svg } = cellSVG(cell, prev, next, c);
             const x0 = curNameW + c * cw;
             parts.push(svg
                 .replace('<svg ', `<svg x="${x0}" y="${y0}" width="${cw}" height="${ch}" `)
