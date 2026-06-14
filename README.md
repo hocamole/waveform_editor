@@ -158,7 +158,7 @@ WaveDrom으로는 표현할 수 없는 화살표·주석을 그릴 수 있습니
     {
       "name": "clk",
       "cells": [
-        { "type": "bit", "v": 1 },                               // 1/0
+        { "type": "bit", "value": 1 },                           // 1/0
         { "type": "data", "id": 1, "value": "A0",                // 데이터 버스
           "color": "#add8e6", "textcolor": "#000000" },
         { "type": "z" },                                         // High-Z
@@ -181,7 +181,7 @@ WaveDrom으로는 표현할 수 없는 화살표·주석을 그릴 수 있습니
 }
 ```
 
-- 셀 `type`: `bit`(`v`: 0/1) · `data`(`id`로 버스 구분, `value`/`color`/`textcolor`) · `z` · `x` · `empty`.
+- 셀 `type`: `bit`(`value`: 0/1) · `data`(`id`로 버스 구분, `value`=라벨, `color`/`textcolor`) · `z` · `x` · `empty`.
 - 주석 좌표 `gx`/`gy` 는 **격자 단위 비율 좌표**입니다(정수부 = 칸 번호, 소수부 = 칸 안 위치). 셀 크기가 바뀌어도 위치가 유지됩니다.
 
 ---

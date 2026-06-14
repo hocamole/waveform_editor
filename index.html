@@ -845,9 +845,9 @@ function toWaveJson(obj) {
 // JSON 포맷 키: 내부(t/label/tcolor) <-> 외부(type/value/textcolor) 변환
 function cellOut(c) {
     const o = { type: c.t };
-    if (c.v !== undefined) o.v = c.v;
     if (c.id !== undefined) o.id = c.id;
-    if (c.label !== undefined) o.value = c.label;
+    if (c.v !== undefined) o.value = c.v;         // bit 값(0/1)
+    if (c.label !== undefined) o.value = c.label; // data 값(라벨) — bit/data 공존 안 함
     if (c.color !== undefined) o.color = c.color;
     if (c.tcolor !== undefined) o.textcolor = c.tcolor;
     return o;
@@ -855,9 +855,8 @@ function cellOut(c) {
 function cellIn(o) {
     if (!o || typeof o !== 'object') return emptyCell();
     const c = { t: o.type };
-    if (o.v !== undefined) c.v = o.v;
+    if (o.value !== undefined) { if (c.t === 'bit') c.v = o.value; else c.label = o.value; }
     if (o.id !== undefined) c.id = o.id;
-    if (o.value !== undefined) c.label = o.value;
     if (o.color !== undefined) c.color = o.color;
     if (o.textcolor !== undefined) c.tcolor = o.textcolor;
     return c;
