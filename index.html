@@ -480,7 +480,7 @@ function seed() {
     const data = [];
     for (let i = 0; i < state.cols; i++) {
         if (i >= 3 && i <= 7)       data.push({ t: 'data', id: idA, label: 'A0', color: state.fillColor, tcolor: state.textColor });
-        else if (i >= 8 && i <= 12) data.push({ t: 'data', id: idB, label: 'B1', color: state.fillColor, tcolor: state.textColor });
+        else if (i >= 8 && i <= 12) data.push({ t: 'data', id: idB, label: 'B1', color: '#1e90ff', tcolor: state.textColor });
         else                        data.push({ t: 'x' });
     }
     state.signals.push(makeSignal('data', data));
