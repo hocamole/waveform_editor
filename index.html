@@ -842,12 +842,42 @@ function toWaveJson(obj) {
 /* =========================================================================
    자체 JSON 포맷 (무손실)
    ========================================================================= */
+// JSON 포맷 키: 내부(t/label/tcolor) <-> 외부(type/value/textcolor) 변환
+function cellOut(c) {
+    const o = { type: c.t };
+    if (c.v !== undefined) o.v = c.v;
+    if (c.id !== undefined) o.id = c.id;
+    if (c.label !== undefined) o.value = c.label;
+    if (c.color !== undefined) o.color = c.color;
+    if (c.tcolor !== undefined) o.textcolor = c.tcolor;
+    return o;
+}
+function cellIn(o) {
+    if (!o || typeof o !== 'object') return emptyCell();
+    const c = { t: o.type };
+    if (o.v !== undefined) c.v = o.v;
+    if (o.id !== undefined) c.id = o.id;
+    if (o.value !== undefined) c.label = o.value;
+    if (o.color !== undefined) c.color = o.color;
+    if (o.textcolor !== undefined) c.tcolor = o.textcolor;
+    return c;
+}
+function annoOut(a) {
+    const o = Object.assign({}, a);
+    if ('tcolor' in o) { o.textcolor = o.tcolor; delete o.tcolor; }
+    return o;
+}
+function annoIn(a) {
+    const o = Object.assign({}, a);
+    if ('textcolor' in o) { o.tcolor = o.textcolor; delete o.textcolor; }
+    return o;
+}
 function exportObject() {
     return {
         version: '1.0.0',
         grid: { cols: state.cols, cellW: state.cellW, cellH: state.cellH, signalH: state.signalH, lineWidth: state.lineWidth, fillColor: state.fillColor, textColor: state.textColor, lineColor: state.lineColor, annoTextColor: state.annoTextColor },
-        signals: state.signals.map(s => ({ name: s.name, cells: s.cells })),
-        annotations: state.annotations
+        signals: state.signals.map(s => ({ name: s.name, cells: s.cells.map(cellOut) })),
+        annotations: state.annotations.map(annoOut)
     };
 }
 function exportJSONText() { return JSON.stringify(exportObject(), null, 2); }
@@ -872,9 +902,10 @@ function importFromText(text) {
     $('#data-text-color').value = state.textColor;
     $('#line-color').value = state.lineColor;
     $('#anno-text-color').value = state.annoTextColor;
-    state.signals = obj.signals.map(s => makeSignal(s.name, s.cells));
+    state.signals = obj.signals.map(s => makeSignal(s.name, (s.cells || []).map(cellIn)));
     normalizeIds(state.signals);
     state.annotations = (obj.annotations || []).map(a => {
+        a = annoIn(a);
         a.id = a.id || nextAnnoId++;
         if (a.id >= nextAnnoId) nextAnnoId = a.id + 1;
         return a;

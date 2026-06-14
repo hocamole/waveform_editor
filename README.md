@@ -158,12 +158,12 @@ WaveDrom으로는 표현할 수 없는 화살표·주석을 그릴 수 있습니
     {
       "name": "clk",
       "cells": [
-        { "t": "bit", "v": 1 },                                  // 1/0
-        { "t": "data", "id": 1, "label": "A0",                   // 데이터 버스
-          "color": "#add8e6", "tcolor": "#000000" },
-        { "t": "z" },                                            // High-Z
-        { "t": "x" },                                            // Unknown
-        { "t": "empty" }                                         // 빈 칸
+        { "type": "bit", "v": 1 },                               // 1/0
+        { "type": "data", "id": 1, "value": "A0",                // 데이터 버스
+          "color": "#add8e6", "textcolor": "#000000" },
+        { "type": "z" },                                         // High-Z
+        { "type": "x" },                                         // Unknown
+        { "type": "empty" }                                      // 빈 칸
       ]
     }
   ],
@@ -173,7 +173,7 @@ WaveDrom으로는 표현할 수 없는 화살표·주석을 그릴 수 있습니
       "heads": "end",        // "end" | "both" | "none"(점선)
       "dashed": false,
       "color": "#c0392b",    // 선 색
-      "tcolor": "#c0392b",   // 가운데 글자 색
+      "textcolor": "#c0392b",// 가운데 글자 색
       "text": "rising" },
     { "type": "text", "at": { "gx": 8, "gy": 0.5 },              // 독립 텍스트
       "text": "note", "color": "#c0392b" }
@@ -181,7 +181,7 @@ WaveDrom으로는 표현할 수 없는 화살표·주석을 그릴 수 있습니
 }
 ```
 
-- 셀 타입: `bit`(`v`: 0/1) · `data`(`id`로 버스 구분, `label`/`color`/`tcolor`) · `z` · `x` · `empty`.
+- 셀 `type`: `bit`(`v`: 0/1) · `data`(`id`로 버스 구분, `value`/`color`/`textcolor`) · `z` · `x` · `empty`.
 - 주석 좌표 `gx`/`gy` 는 **격자 단위 비율 좌표**입니다(정수부 = 칸 번호, 소수부 = 칸 안 위치). 셀 크기가 바뀌어도 위치가 유지됩니다.
 
 ---
