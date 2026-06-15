@@ -330,6 +330,12 @@
                 <button class="tool-btn" data-tool="dline" title="점선 (드래그) — 가운데 텍스트 입력 가능">
                     <svg class="dir-icon" viewBox="0 0 22 16"><path d="M2 8h4M9 8h4M16 8h4"/></svg>
                 </button>
+                <button class="tool-btn" data-tool="rect" title="사각형 (드래그, Shift=정사각형) — 가운데 텍스트 입력 가능">
+                    <svg class="dir-icon" viewBox="0 0 22 16"><rect x="3" y="3" width="16" height="10" rx="1"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="ellipse" title="원/타원 (드래그, Shift=원) — 가운데 텍스트 입력 가능">
+                    <svg class="dir-icon" viewBox="0 0 22 16"><ellipse cx="11" cy="8" rx="8" ry="5.5"/></svg>
+                </button>
                 <button class="tool-btn" data-tool="text" title="텍스트 추가 (클릭)">T</button>
                 <button class="tool-btn sm" data-tool="move" title="주석 이동"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M45.4,22.6l-5.9-6a2.1,2.1,0,0,0-2.7-.2,1.9,1.9,0,0,0-.2,3L39.2,22H26V8.8l2.6,2.6a1.9,1.9,0,0,0,3-.2,2.1,2.1,0,0,0-.2-2.7l-6-5.9a1.9,1.9,0,0,0-2.8,0l-6,5.9a2.1,2.1,0,0,0-.2,2.7,1.9,1.9,0,0,0,3,.2L22,8.8V22H8.8l2.6-2.6a1.9,1.9,0,0,0-.2-3,2.1,2.1,0,0,0-2.7.2l-5.9,6a1.9,1.9,0,0,0,0,2.8l5.9,6a2.1,2.1,0,0,0,2.7.2,1.9,1.9,0,0,0,.2-3L8.8,26H22V39.2l-2.6-2.6a1.9,1.9,0,0,0-3,.2,2.1,2.1,0,0,0,.2,2.7l6,5.9a1.9,1.9,0,0,0,2.8,0l6-5.9a2.1,2.1,0,0,0,.2-2.7,1.9,1.9,0,0,0-3-.2L26,39.2V26H39.2l-2.6,2.6a1.9,1.9,0,0,0,.2,3,2.1,2.1,0,0,0,2.7-.2l5.9-6A1.9,1.9,0,0,0,45.4,22.6Z"/></svg>이동</button>
                 <button class="tool-btn sm" data-tool="erase" title="주석 삭제"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M24,7.25 C27.1017853,7.25 29.629937,9.70601719 29.7458479,12.7794443 L29.75,13 L37,13 C37.6903559,13 38.25,13.5596441 38.25,14.25 C38.25,14.8972087 37.7581253,15.4295339 37.1278052,15.4935464 L37,15.5 L35.909,15.5 L34.2058308,38.0698451 C34.0385226,40.2866784 32.1910211,42 29.9678833,42 L18.0321167,42 C15.8089789,42 13.9614774,40.2866784 13.7941692,38.0698451 L12.09,15.5 L11,15.5 C10.3527913,15.5 9.8204661,15.0081253 9.75645361,14.3778052 L9.75,14.25 C9.75,13.6027913 10.2418747,13.0704661 10.8721948,13.0064536 L11,13 L18.25,13 C18.25,9.82436269 20.8243627,7.25 24,7.25 Z M33.4021054,15.5 L14.5978946,15.5 L16.2870795,37.8817009 C16.3559711,38.7945146 17.116707,39.5 18.0321167,39.5 L29.9678833,39.5 C30.883293,39.5 31.6440289,38.7945146 31.7129205,37.8817009 L33.4021054,15.5 Z M27.25,20.75 C27.8972087,20.75 28.4295339,21.2418747 28.4935464,21.8721948 L28.5,22 L28.5,33 C28.5,33.6903559 27.9403559,34.25 27.25,34.25 C26.6027913,34.25 26.0704661,33.7581253 26.0064536,33.1278052 L26,33 L26,22 C26,21.3096441 26.5596441,20.75 27.25,20.75 Z M20.75,20.75 C21.3972087,20.75 21.9295339,21.2418747 21.9935464,21.8721948 L22,22 L22,33 C22,33.6903559 21.4403559,34.25 20.75,34.25 C20.1027913,34.25 19.5704661,33.7581253 19.5064536,33.1278052 L19.5,33 L19.5,22 C19.5,21.3096441 20.0596441,20.75 20.75,20.75 Z M24,9.75 C22.2669685,9.75 20.8507541,11.1064548 20.7551448,12.8155761 L20.75,13 L27.25,13 C27.25,11.2050746 25.7949254,9.75 24,9.75 Z"/></svg>삭제</button>
@@ -738,6 +744,9 @@ function renderAnnotations() {
         if (a.type === 'arrow') {
             svg += arrowSVG(a);
             if ((a.text && a.text.length) || editingLineId === a.id) htmls += lineTextHTML(a);
+        } else if (a.type === 'shape') {
+            svg += shapeSVG(a);
+            if ((a.text && a.text.length) || editingLineId === a.id) htmls += lineTextHTML(a);
         } else if (a.type === 'text') {
             htmls += textHTML(a);
         }
@@ -771,6 +780,31 @@ function arrowSVG(a) {
     </g>`;
 }
 
+/* 테두리만 있는 사각형/타원 주석. from/to 를 바운딩 박스의 두 모서리로 사용 */
+function shapeSVG(a) {
+    const [x1, y1] = g2px(a.from.gx, a.from.gy);
+    const [x2, y2] = g2px(a.to.gx, a.to.gy);
+    const col = a.color || '#c0392b';
+    const x = Math.min(x1, x2), y = Math.min(y1, y2);
+    const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
+    const dash = a.dashed ? ' stroke-dasharray="6 4"' : '';
+    let hit, shape;
+    if (a.shape === 'ellipse') {
+        const cx = x + w / 2, cy = y + h / 2, rx = w / 2, ry = h / 2;
+        hit   = `<ellipse class="anno-hit" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" stroke="transparent" stroke-width="14" fill="none"/>`;
+        shape = `<ellipse class="anno-arrow" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" style="stroke:${col}" fill="none"${dash}/>`;
+    } else {
+        hit   = `<rect class="anno-hit" x="${x}" y="${y}" width="${w}" height="${h}" stroke="transparent" stroke-width="14" fill="none"/>`;
+        shape = `<rect class="anno-arrow" x="${x}" y="${y}" width="${w}" height="${h}" style="stroke:${col}" fill="none"${dash}/>`;
+    }
+    return `<g data-anno="${a.id}">
+        ${hit}
+        ${shape}
+        <circle class="anno-handle" data-anno="${a.id}" data-end="1" cx="${x1}" cy="${y1}" r="5"/>
+        <circle class="anno-handle" data-anno="${a.id}" data-end="2" cx="${x2}" cy="${y2}" r="5"/>
+    </g>`;
+}
+
 function textHTML(a) {
     const [x, y] = g2px(a.at.gx, a.at.gy);
     const col = a.color || '#c0392b';
@@ -787,7 +821,7 @@ function lineTextHTML(a) {
 }
 function editLineText(id) {
     const a = findAnno(id);
-    if (!a || a.type !== 'arrow') return;
+    if (!a || (a.type !== 'arrow' && a.type !== 'shape')) return;
     editingLineId = id;
     renderAnnotations();
     const el = annoHtml.querySelector(`.anno-text[data-anno="${id}"]`);
@@ -982,6 +1016,18 @@ function buildCaptureSVG() {
             if (mode === 'end' || mode === 'both') parts.push(arrowHead(x2, y2, ang, col));
             if (mode === 'both') parts.push(arrowHead(x1, y1, ang + Math.PI, col));
             if (a.text) parts.push(captureTextLines((x1 + x2) / 2, (y1 + y2) / 2, a.text, a.tcolor || col, 12, 'middle'));
+        } else if (a.type === 'shape') {
+            const [x1, y1] = cg(a.from.gx, a.from.gy);
+            const [x2, y2] = cg(a.to.gx, a.to.gy);
+            const col = a.color || '#c0392b';
+            const x = Math.min(x1, x2), y = Math.min(y1, y2);
+            const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
+            const dash = a.dashed ? ' stroke-dasharray="6 4"' : '';
+            if (a.shape === 'ellipse')
+                parts.push(`<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" fill="none" stroke="${col}" stroke-width="2"${dash}/>`);
+            else
+                parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${col}" stroke-width="2"${dash}/>`);
+            if (a.text) parts.push(captureTextLines(x + w / 2, y + h / 2, a.text, a.tcolor || col, 12, 'middle'));
         } else if (a.type === 'text') {
             const [x, y] = cg(a.at.gx, a.at.gy);
             parts.push(captureTextLines(x, y, a.text || '', a.color || '#c0392b', 12, 'start'));
@@ -1353,6 +1399,15 @@ annoSvg.addEventListener('mousedown', e => {
         state.annotations.push(a);
         annoDrag = { kind: 'new-arrow', a };
         renderAnnotations();
+    } else if (tool === 'rect' || tool === 'ellipse') {
+        e.preventDefault();
+        const [px, py] = wrapPx(e);
+        const [gx, gy] = px2g(px, py);
+        pushUndo();
+        const a = { id: nextAnnoId++, type: 'shape', shape: tool, from: { gx, gy }, to: { gx, gy }, color: state.lineColor, tcolor: state.annoTextColor, text: '' };
+        state.annotations.push(a);
+        annoDrag = { kind: 'new-shape', a };
+        renderAnnotations();
     } else if (tool === 'text') {
         e.preventDefault();
         const [px, py] = wrapPx(e);
@@ -1394,7 +1449,7 @@ annoSvg.addEventListener('mousedown', e => {
 function applyAnnoColor(id) {
     const a = findAnno(id);
     if (!a) return;
-    if (a.type === 'arrow') { a.color = state.lineColor; a.tcolor = state.annoTextColor; }
+    if (a.type === 'arrow' || a.type === 'shape') { a.color = state.lineColor; a.tcolor = state.annoTextColor; }
     else if (a.type === 'text') { a.color = state.annoTextColor; }
     renderAnnotations();
 }
@@ -1404,7 +1459,7 @@ annoSvg.addEventListener('dblclick', e => {
     const g = e.target.closest('[data-anno]');
     if (!g) return;
     const a = findAnno(+g.dataset.anno);
-    if (a && a.type === 'arrow') { e.preventDefault(); editLineText(a.id); }
+    if (a && (a.type === 'arrow' || a.type === 'shape')) { e.preventDefault(); editLineText(a.id); }
 });
 
 /* 텍스트/가운데텍스트 주석: 이동/삭제 (anno-html 위임) */
@@ -1419,8 +1474,8 @@ annoHtml.addEventListener('mousedown', e => {
         e.preventDefault();
         pushUndo();
         const [px, py] = wrapPx(e);
-        // 화살표/점선의 가운데 텍스트는 선 전체를 이동, 독립 텍스트는 자기만 이동
-        if (a && a.type === 'arrow') annoDrag = { kind: 'move-arrow', a, start: px2g(px, py) };
+        // 화살표/점선/도형의 가운데 텍스트는 전체를 이동, 독립 텍스트는 자기만 이동
+        if (a && (a.type === 'arrow' || a.type === 'shape')) annoDrag = { kind: 'move-arrow', a, start: px2g(px, py) };
         else annoDrag = { kind: 'move-text', a, start: px2g(px, py) };
         document.body.classList.add('anno-moving');
     }
@@ -1447,14 +1502,27 @@ document.addEventListener('mousemove', e => {
     const [px, py] = wrapPx(e);
     let [gx, gy] = px2g(px, py);
     const a = annoDrag.a;
-    if (annoDrag.kind === 'new-arrow' || (annoDrag.kind === 'handle' && annoDrag.end === '2')) {
-        if (e.shiftKey) { // Shift: from 기준 수평/수직 고정
-            if (Math.abs(gx - a.from.gx) >= Math.abs(gy - a.from.gy)) gy = a.from.gy; else gx = a.from.gx;
+    const isShape = a.type === 'shape';
+    if (annoDrag.kind === 'new-arrow' || annoDrag.kind === 'new-shape' || (annoDrag.kind === 'handle' && annoDrag.end === '2')) {
+        if (e.shiftKey) {
+            if (isShape) { // Shift: 정사각형/원(가로=세로)
+                const s = Math.min(Math.abs(gx - a.from.gx), Math.abs(gy - a.from.gy));
+                gx = a.from.gx + Math.sign(gx - a.from.gx) * s;
+                gy = a.from.gy + Math.sign(gy - a.from.gy) * s;
+            } else { // Shift: from 기준 수평/수직 고정
+                if (Math.abs(gx - a.from.gx) >= Math.abs(gy - a.from.gy)) gy = a.from.gy; else gx = a.from.gx;
+            }
         }
         a.to = { gx, gy };
     } else if (annoDrag.kind === 'handle' && annoDrag.end === '1') {
-        if (e.shiftKey) { // Shift: to 기준 수평/수직 고정
-            if (Math.abs(gx - a.to.gx) >= Math.abs(gy - a.to.gy)) gy = a.to.gy; else gx = a.to.gx;
+        if (e.shiftKey) {
+            if (isShape) { // Shift: 정사각형/원(가로=세로)
+                const s = Math.min(Math.abs(gx - a.to.gx), Math.abs(gy - a.to.gy));
+                gx = a.to.gx + Math.sign(gx - a.to.gx) * s;
+                gy = a.to.gy + Math.sign(gy - a.to.gy) * s;
+            } else { // Shift: to 기준 수평/수직 고정
+                if (Math.abs(gx - a.to.gx) >= Math.abs(gy - a.to.gy)) gy = a.to.gy; else gx = a.to.gx;
+            }
         }
         a.from = { gx, gy };
     } else if (annoDrag.kind === 'move-arrow') {
@@ -1468,7 +1536,7 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mouseup', () => {
     if (annoDrag) {
-        if (annoDrag.kind === 'new-arrow') {
+        if (annoDrag.kind === 'new-arrow' || annoDrag.kind === 'new-shape') {
             const a = annoDrag.a;
             const [x1, y1] = g2px(a.from.gx, a.from.gy);
             const [x2, y2] = g2px(a.to.gx, a.to.gy);
@@ -1553,7 +1621,7 @@ function setupResize(handleId, axis) {
 function setTool(t) {
     tool = t;
     if (PAINT_PENS.includes(t)) pen = t;
-    document.body.classList.toggle('anno-mode', t === 'arrow' || t === 'darrow' || t === 'dline' || t === 'text');
+    document.body.classList.toggle('anno-mode', t === 'arrow' || t === 'darrow' || t === 'dline' || t === 'text' || t === 'rect' || t === 'ellipse');
     document.body.classList.toggle('erase-mode', t === 'erase');
     document.body.classList.toggle('move-mode', t === 'move');
     document.body.classList.toggle('annoapply-mode', t === 'annoapply');
