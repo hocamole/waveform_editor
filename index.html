@@ -258,6 +258,25 @@
         font: inherit; font-weight: 600; font-size: var(--data-font, 11px);
         color: #000; text-align: center; outline: none; caret-color: #000;
     }
+
+    /*===== 자체 입력 모달 (브라우저 prompt 대체 — 제목줄 없음) =====*/
+    .modal-overlay {
+        position: fixed; inset: 0; z-index: 500;
+        background: rgba(0,0,0,.28);
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 14vh; /*화면 중앙보다 위쪽에 표시*/
+    }
+    .modal-box {
+        background: #fff; border-radius: 8px; padding: 18px;
+        box-shadow: 0 8px 30px rgba(0,0,0,.25);
+        min-width: 260px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .modal-msg {font-size: 13px; color: #222;}
+    .modal-input {
+        height: 34px; padding: 0 8px; border: 1px solid #c4c4c4;
+        border-radius: 5px; font-size: 14px; text-align: center;
+    }
+    .modal-btns {display: flex; justify-content: flex-end; gap: 8px;}
 </style>
 </head>
 <body>
@@ -277,6 +296,7 @@
                 <button class="tool-btn" data-pen="data"  title="데이터 버스 — 더블클릭으로 라벨 편집">D</button>
                 <button class="tool-btn" data-pen="z"     title="High-Z (빨간 실선)">z</button>
                 <button class="tool-btn" data-pen="x"     title="Unknown (주황 점선)">x</button>
+                <button class="tool-btn" data-pen="shot"  title="Shot — 0 가로선 + 왼쪽 경계 굵은 세로선">shot</button>
                 <button class="tool-btn sm" data-pen="clear" title="셀 지우개">지움</button>
                 <button class="tool-btn sm" id="clear-all" title="모든 셀과 주석을 비웁니다">전체 지움</button>
             </div>
@@ -405,7 +425,7 @@
 const NAME_W_MIN = 84; // 신호 이름 칸 최소/기본 너비
 let curNameW = NAME_W_MIN; // 현재 이름 칸 너비(가장 긴 이름에 맞춰 갱신)
 const HEAD_H = 22; // 열 번호 행 높이 (.col-head height)
-const PAINT_PENS = ['bit', 'data', 'z', 'x', 'clear'];
+const PAINT_PENS = ['bit', 'data', 'z', 'x', 'shot', 'clear'];
 
 /* ---------- 상태 ---------- */
 let state = {
@@ -634,6 +654,12 @@ function cellSVG(cell, prev, next, colIdx) {
         if (next && next.t === 'bit') d += ` M${W} ${mid} L${W} ${next.v ? hi : lo}`;     // 끝: 중앙 → 다음 bit 레벨
         body = `<path d="${d}" fill="none" stroke="#e53935" stroke-width="${lw}" ${pe}/>`;
 
+    } else if (cell.t === 'shot') {
+        // 0 레벨 가로선 + 왼쪽 경계에 굵은(선굵기+1) 세로선
+        body =
+            `<path d="M0 ${lo} L${W} ${lo}" fill="none" stroke="#000" stroke-width="${lw}" ${pe}/>` +
+            `<path d="M0 ${hi} L0 ${lo}" fill="none" stroke="#000" stroke-width="${lw + 1}" ${pe}/>`;
+
     } else if (cell.t === 'x') {
         // 데이터 버스와 같은 모양 + 내부 검정 사선 해치(1px)
         const lT = !!prev && prev.t !== 'x'; // 왼쪽 교차 — 실제 다른 값과 만날 때만(그리드 끝이면 평평)
@@ -845,6 +871,7 @@ function updateWavedrom() {
                 else if (cell.t === 'data') { wave += '='; data.push(cell.label || ''); }
                 else if (cell.t === 'z')    wave += 'z';
                 else if (cell.t === 'x')    wave += 'x';
+                else if (cell.t === 'shot') wave += '1'; // shot -> 그냥 1
                 else                        wave += 'z'; // empty -> 플로팅으로 표현
             }
             prevSig = sigKey;
@@ -1089,6 +1116,7 @@ function applyPen(r, c, level) {
     else if (pen === 'data') { if (cur.t === 'data') return false; next = { t: 'data', label: '' }; }
     else if (pen === 'z')     next = { t: 'z' };
     else if (pen === 'x')     next = { t: 'x' };
+    else if (pen === 'shot')  next = { t: 'shot' };
     else if (pen === 'clear') next = emptyCell();
     else return false;
     if (sameCell(cur, next)) return false;
@@ -1322,7 +1350,7 @@ gridEl.addEventListener('contextmenu', e => {
     }
     items.push(['위에 신호 추가', () => { insertSignal(r); }]);
     items.push(['아래에 신호 추가', () => { insertSignal(r + 1); }]);
-    items.push(['CLK 생성 (0101…)', () => { makeClock(r); }]);
+    items.push(['CLK 생성', () => { makeClock(r); }]);
     items.push(['신호 삭제', () => { deleteSignal(r); }, 'danger']);
     showCtx(e.clientX, e.clientY, items);
 });
@@ -1349,11 +1377,20 @@ function insertSignal(idx) {
     state.signals.splice(idx, 0, makeSignal('signal' + (state.signals.length + 1), []));
     render();
 }
-function makeClock(idx) {
+async function makeClock(idx) {
     const sig = state.signals[idx];
     if (!sig) return;
+    const ans = await askNumber('CLK 주기(셀 개수)를 입력하세요.', 2);
+    if (ans === null) return;                 // 취소
+    let p = Math.round(Number(ans));
+    if (!isFinite(p) || p < 1) p = 2;
+    // 한 주기 = 0을 ceil(p/2)개, 1을 floor(p/2)개 (홀수면 0이 하나 더 많음)
+    const zeros = Math.ceil(p / 2);
     pushUndo();
-    for (let i = 0; i < state.cols; i++) sig.cells[i] = { t: 'bit', v: i % 2 };
+    for (let i = 0; i < state.cols; i++) {
+        const phase = i % p;
+        sig.cells[i] = { t: 'bit', v: phase < zeros ? 0 : 1 };
+    }
     render();
 }
 function deleteSignal(idx) {
@@ -1643,6 +1680,36 @@ function placeCaretEnd(el) {
 function copyText(t) {
     if (navigator.clipboard) navigator.clipboard.writeText(t);
 }
+/* 페이지 내 숫자 입력 모달 (브라우저 prompt 제목줄 회피). 확인=값, 취소=null */
+function askNumber(message, def) {
+    return new Promise(resolve => {
+        const ov = document.createElement('div');
+        ov.className = 'modal-overlay';
+        ov.innerHTML =
+            `<div class="modal-box">
+                <div class="modal-msg"></div>
+                <input class="modal-input" type="number" step="1">
+                <div class="modal-btns">
+                    <button class="tool-btn sm modal-cancel">취소</button>
+                    <button class="tool-btn sm modal-ok">확인</button>
+                </div>
+            </div>`;
+        ov.querySelector('.modal-msg').textContent = message;
+        const inp = ov.querySelector('.modal-input');
+        inp.value = def;
+        document.body.appendChild(ov);
+        inp.focus(); inp.select();
+        let done = false;
+        const close = val => { if (done) return; done = true; ov.remove(); resolve(val); };
+        ov.querySelector('.modal-ok').onclick = () => close(inp.value);
+        ov.querySelector('.modal-cancel').onclick = () => close(null);
+        ov.addEventListener('mousedown', e => { if (e.target === ov) close(null); }); // 바깥 클릭=취소
+        inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); close(inp.value); }
+            else if (e.key === 'Escape') { e.preventDefault(); close(null); }
+        });
+    });
+}
 
 /* =========================================================================
    이벤트 와이어링
@@ -1751,6 +1818,7 @@ function wire() {
         else if (k === 'd') { e.preventDefault(); setTool('data'); }
         else if (k === 'z') { e.preventDefault(); setTool('z'); }
         else if (k === 'x') { e.preventDefault(); setTool('x'); }
+        else if (k === 's') { e.preventDefault(); setTool('shot'); }
         else if (k === 'e') { e.preventDefault(); setTool('clear'); }
         else if (k === 'c') { e.preventDefault(); $('#capture-btn').click(); }
     });
