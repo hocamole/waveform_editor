@@ -1363,7 +1363,8 @@ gridEl.addEventListener('contextmenu', e => {
     const c = cellTd ? +cellTd.dataset.c : null;
     const items = [];
     if (c !== null) {
-        items.push(['이 열 앞에 열 삽입', () => { insertCol(c); }]);
+        items.push(['왼쪽에 열 추가', () => { insertCol(c); }]);
+        items.push(['오른쪽에 열 추가', () => { insertCol(c + 1); }]);
         items.push(['이 열 삭제', () => { deleteCol(c); }]);
         items.push(['hr']);
     }
