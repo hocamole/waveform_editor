@@ -364,6 +364,9 @@
                 <button class="tool-btn" data-tool="ellipse" title="원/타원 (드래그, Shift=원) — 가운데 텍스트 입력 가능">
                     <svg class="dir-icon" viewBox="0 0 22 16"><ellipse cx="11" cy="8" rx="8" ry="5.5"/></svg>
                 </button>
+                <button class="tool-btn" data-tool="gap" title="gap — 세로 이중 물결(좌우 사이 시간 생략). 드래그로 세로 길이 지정, Shift=수직 고정">
+                    <svg class="dir-icon" viewBox="0 0 22 16"><g transform="translate(22,0) scale(-1,1)"><path d="M8 1C11 3 11 6 8 8 5 10 5 13 8 15M14 1c3 2 3 5 0 7-3 2-3 5 0 7"/></g></svg>
+                </button>
                 <button class="tool-btn" data-tool="text" title="텍스트 추가 (클릭)">T</button>
                 <button class="tool-btn sm" data-tool="move" title="주석 이동"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M45.4,22.6l-5.9-6a2.1,2.1,0,0,0-2.7-.2,1.9,1.9,0,0,0-.2,3L39.2,22H26V8.8l2.6,2.6a1.9,1.9,0,0,0,3-.2,2.1,2.1,0,0,0-.2-2.7l-6-5.9a1.9,1.9,0,0,0-2.8,0l-6,5.9a2.1,2.1,0,0,0-.2,2.7,1.9,1.9,0,0,0,3,.2L22,8.8V22H8.8l2.6-2.6a1.9,1.9,0,0,0-.2-3,2.1,2.1,0,0,0-2.7.2l-5.9,6a1.9,1.9,0,0,0,0,2.8l5.9,6a2.1,2.1,0,0,0,2.7.2,1.9,1.9,0,0,0,.2-3L8.8,26H22V39.2l-2.6-2.6a1.9,1.9,0,0,0-3,.2,2.1,2.1,0,0,0,.2,2.7l6,5.9a1.9,1.9,0,0,0,2.8,0l6-5.9a2.1,2.1,0,0,0,.2-2.7,1.9,1.9,0,0,0-3-.2L26,39.2V26H39.2l-2.6,2.6a1.9,1.9,0,0,0,.2,3,2.1,2.1,0,0,0,2.7-.2l5.9-6A1.9,1.9,0,0,0,45.4,22.6Z"/></svg>이동</button>
                 <button class="tool-btn sm" data-tool="erase" title="주석 삭제"><svg class="btn-icon" viewBox="0 0 48 48" fill="currentColor"><path d="M24,7.25 C27.1017853,7.25 29.629937,9.70601719 29.7458479,12.7794443 L29.75,13 L37,13 C37.6903559,13 38.25,13.5596441 38.25,14.25 C38.25,14.8972087 37.7581253,15.4295339 37.1278052,15.4935464 L37,15.5 L35.909,15.5 L34.2058308,38.0698451 C34.0385226,40.2866784 32.1910211,42 29.9678833,42 L18.0321167,42 C15.8089789,42 13.9614774,40.2866784 13.7941692,38.0698451 L12.09,15.5 L11,15.5 C10.3527913,15.5 9.8204661,15.0081253 9.75645361,14.3778052 L9.75,14.25 C9.75,13.6027913 10.2418747,13.0704661 10.8721948,13.0064536 L11,13 L18.25,13 C18.25,9.82436269 20.8243627,7.25 24,7.25 Z M33.4021054,15.5 L14.5978946,15.5 L16.2870795,37.8817009 C16.3559711,38.7945146 17.116707,39.5 18.0321167,39.5 L29.9678833,39.5 C30.883293,39.5 31.6440289,38.7945146 31.7129205,37.8817009 L33.4021054,15.5 Z M27.25,20.75 C27.8972087,20.75 28.4295339,21.2418747 28.4935464,21.8721948 L28.5,22 L28.5,33 C28.5,33.6903559 27.9403559,34.25 27.25,34.25 C26.6027913,34.25 26.0704661,33.7581253 26.0064536,33.1278052 L26,33 L26,22 C26,21.3096441 26.5596441,20.75 27.25,20.75 Z M20.75,20.75 C21.3972087,20.75 21.9295339,21.2418747 21.9935464,21.8721948 L22,22 L22,33 C22,33.6903559 21.4403559,34.25 20.75,34.25 C20.1027913,34.25 19.5704661,33.7581253 19.5064536,33.1278052 L19.5,33 L19.5,22 C19.5,21.3096441 20.0596441,20.75 20.75,20.75 Z M24,9.75 C22.2669685,9.75 20.8507541,11.1064548 20.7551448,12.8155761 L20.75,13 L27.25,13 C27.25,11.2050746 25.7949254,9.75 24,9.75 Z"/></svg>삭제</button>
@@ -798,6 +801,8 @@ function renderAnnotations() {
         } else if (a.type === 'shape') {
             svg += shapeSVG(a);
             if ((a.text && a.text.length) || editingLineId === a.id) htmls += lineTextHTML(a);
+        } else if (a.type === 'gap') {
+            svg += gapSVG(a);
         } else if (a.type === 'text') {
             htmls += textHTML(a);
         }
@@ -851,6 +856,45 @@ function shapeSVG(a) {
     return `<g data-anno="${a.id}">
         ${hit}
         ${shape}
+        <circle class="anno-handle" data-anno="${a.id}" data-end="1" cx="${x1}" cy="${y1}" r="5"/>
+        <circle class="anno-handle" data-anno="${a.id}" data-end="2" cx="${x2}" cy="${y2}" r="5"/>
+    </g>`;
+}
+
+/* gap(시간 생략): from→to 축을 따라 흐르는 평행 이중 물결 띠. 사이는 흰색으로 채워 배경을 가림 */
+function gapGeom(x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const L = Math.hypot(dx, dy) || 1;
+    const ux = dx / L, uy = dy / L;       // 축(진행) 방향
+    const nx = -uy, ny = ux;              // 수직(물결 진폭) 방향
+    const A = 3.2;                        // 물결 진폭
+    const BW = 7;                         // 두 물결 사이 간격(흰 띠 폭)
+    const wl = 30;                        // 파장
+    const n = Math.max(2, Math.ceil(L / 2)); // 약 2px 간격 샘플(끝점 포함)
+    const left = [], right = [];
+    for (let i = 0; i <= n; i++) {
+        const tt = L * i / n;
+        const cx = x1 + ux * tt, cy = y1 + uy * tt;
+        const disp = A * Math.sin((tt / wl) * 2 * Math.PI);
+        left.push([cx + nx * (disp - BW / 2), cy + ny * (disp - BW / 2)]);
+        right.push([cx + nx * (disp + BW / 2), cy + ny * (disp + BW / 2)]);
+    }
+    const poly = pts => pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const leftD = poly(left);
+    const rightD = poly(right);
+    const fillD = poly(left) + ' ' + right.slice().reverse().map(p => 'L' + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + ' Z';
+    return { leftD, rightD, fillD };
+}
+function gapSVG(a) {
+    const [x1, y1] = g2px(a.from.gx, a.from.gy);
+    const [x2, y2] = g2px(a.to.gx, a.to.gy);
+    const col = a.color || '#c0392b';
+    const { leftD, rightD, fillD } = gapGeom(x1, y1, x2, y2);
+    return `<g data-anno="${a.id}">
+        <path class="anno-hit" d="M${x1} ${y1} L${x2} ${y2}" stroke="transparent" stroke-width="16" fill="none"/>
+        <path d="${fillD}" fill="#fff" stroke="none"/>
+        <path class="anno-arrow" d="${leftD}" style="stroke:${col}" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        <path class="anno-arrow" d="${rightD}" style="stroke:${col}" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
         <circle class="anno-handle" data-anno="${a.id}" data-end="1" cx="${x1}" cy="${y1}" r="5"/>
         <circle class="anno-handle" data-anno="${a.id}" data-end="2" cx="${x2}" cy="${y2}" r="5"/>
     </g>`;
@@ -1081,6 +1125,14 @@ function buildCaptureSVG() {
             else
                 parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${col}" stroke-width="2"${dash}/>`);
             if (a.text) parts.push(captureTextLines(x + w / 2, y + h / 2, a.text, a.tcolor || col, 12, 'middle'));
+        } else if (a.type === 'gap') {
+            const [x1, y1] = cg(a.from.gx, a.from.gy);
+            const [x2, y2] = cg(a.to.gx, a.to.gy);
+            const col = a.color || '#c0392b';
+            const { leftD, rightD, fillD } = gapGeom(x1, y1, x2, y2);
+            parts.push(`<path d="${fillD}" fill="#fff" stroke="none"/>`);
+            parts.push(`<path d="${leftD}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`);
+            parts.push(`<path d="${rightD}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`);
         } else if (a.type === 'text') {
             const [x, y] = cg(a.at.gx, a.at.gy);
             parts.push(captureTextLines(x, y, a.text || '', a.color || '#c0392b', 12, 'start'));
@@ -1558,6 +1610,15 @@ annoSvg.addEventListener('mousedown', e => {
         state.annotations.push(a);
         annoDrag = { kind: 'new-shape', a };
         renderAnnotations();
+    } else if (tool === 'gap') {
+        e.preventDefault();
+        const [px, py] = wrapPx(e);
+        const [gx, gy] = px2g(px, py);
+        pushUndo();
+        const a = { id: nextAnnoId++, type: 'gap', from: { gx, gy }, to: { gx, gy }, color: state.lineColor };
+        state.annotations.push(a);
+        annoDrag = { kind: 'new-gap', a };
+        renderAnnotations();
     } else if (tool === 'text') {
         e.preventDefault();
         const [px, py] = wrapPx(e);
@@ -1600,6 +1661,7 @@ function applyAnnoColor(id) {
     const a = findAnno(id);
     if (!a) return;
     if (a.type === 'arrow' || a.type === 'shape') { a.color = state.lineColor; a.tcolor = state.annoTextColor; }
+    else if (a.type === 'gap') { a.color = state.lineColor; }
     else if (a.type === 'text') { a.color = state.annoTextColor; }
     renderAnnotations();
 }
@@ -1653,7 +1715,7 @@ document.addEventListener('mousemove', e => {
     let [gx, gy] = px2g(px, py);
     const a = annoDrag.a;
     const isShape = a.type === 'shape';
-    if (annoDrag.kind === 'new-arrow' || annoDrag.kind === 'new-shape' || (annoDrag.kind === 'handle' && annoDrag.end === '2')) {
+    if (annoDrag.kind === 'new-arrow' || annoDrag.kind === 'new-shape' || annoDrag.kind === 'new-gap' || (annoDrag.kind === 'handle' && annoDrag.end === '2')) {
         if (e.shiftKey) {
             if (isShape) { // Shift: 정사각형/원(가로=세로)
                 const s = Math.min(Math.abs(gx - a.from.gx), Math.abs(gy - a.from.gy));
@@ -1686,13 +1748,15 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mouseup', () => {
     if (annoDrag) {
-        if (annoDrag.kind === 'new-arrow' || annoDrag.kind === 'new-shape') {
+        if (annoDrag.kind === 'new-arrow' || annoDrag.kind === 'new-shape' || annoDrag.kind === 'new-gap') {
             const a = annoDrag.a;
             const [x1, y1] = g2px(a.from.gx, a.from.gy);
             const [x2, y2] = g2px(a.to.gx, a.to.gy);
+            const wasGap = annoDrag.kind === 'new-gap';
             annoDrag = null;
             document.body.classList.remove('anno-moving');
             if (Math.hypot(x2 - x1, y2 - y1) < 6) { removeAnno(a.id); }
+            else if (wasGap) { renderAnnotations(); }     // gap은 가운데 텍스트 없음
             else { renderAnnotations(); editLineText(a.id); } // 그린 직후 가운데 텍스트 입력
             return;
         }
@@ -1771,7 +1835,7 @@ function setupResize(handleId, axis) {
 function setTool(t) {
     tool = t;
     if (PAINT_PENS.includes(t)) pen = t;
-    document.body.classList.toggle('anno-mode', t === 'arrow' || t === 'darrow' || t === 'dline' || t === 'text' || t === 'rect' || t === 'ellipse');
+    document.body.classList.toggle('anno-mode', t === 'arrow' || t === 'darrow' || t === 'dline' || t === 'text' || t === 'rect' || t === 'ellipse' || t === 'gap');
     document.body.classList.toggle('erase-mode', t === 'erase');
     document.body.classList.toggle('move-mode', t === 'move');
     document.body.classList.toggle('annoapply-mode', t === 'annoapply');
